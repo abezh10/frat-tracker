@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  authId       String   @unique // Supabase Auth user ID
+  name         String
+  email        String   @unique
+  role         String   @default("PLEDGE") // BROTHER | PLEDGE
+  pledgeClass  String?
+  createdAt    DateTime @default(now())
+
+  tasksAssigned  Task[]      @relation("AssignedTo")
+  tasksCreated   Task[]      @relation("AssignedBy")
+  eventsCreated  Event[]     @relation("CreatedBy")
+  signaturesAsP  Signature[] @relation("PledgeSig")
+  signaturesAsB  Signature[] @relation("BrotherSig")
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+
+  assignedToId String
+  assignedTo   User   @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  assignedById String
+  assignedBy   User   @relation("AssignedBy", fields: [assignedById], references: [id])
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime
+  location    String?
+  createdAt   DateTime @default(now())
+
+  createdById String
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+
+  signatures Signature[]
+}
+
+model Signature {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  eventId  String
+  event    Event @relation(fields: [eventId], references: [id])
+
+  pledgeId String
+  pledge   User   @relation("PledgeSig", fields: [pledgeId], references: [id])
+
+  brotherId String
+  brother   User   @relation("BrotherSig", fields: [brotherId], references: [id])
+
+  @@unique([eventId, pledgeId, brotherId])
+}
