@@ -61,7 +61,7 @@ export function EventsClient({
   pledges,
 }: EventsClientProps) {
   const router = useRouter();
-  const isBrother = currentUser.role === "BROTHER";
+  const isBrother = currentUser.role === "BROTHER" || currentUser.role === "ADMIN";
 
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -128,12 +128,18 @@ export function EventsClient({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Events</h2>
-          <p className="text-muted-foreground text-sm">
-            {events.length} event{events.length !== 1 && "s"} total
+    <div className="space-y-8">
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground/80">
+            Signature events
+          </span>
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+            Events
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-mono tabular-nums">{events.length}</span> event
+            {events.length !== 1 && "s"} total
           </p>
         </div>
         {isBrother && (
@@ -208,13 +214,15 @@ export function EventsClient({
       </div>
 
       {events.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="text-muted-foreground mb-4 h-12 w-12" />
-            <p className="text-muted-foreground text-lg font-medium">
+        <Card className="border-dashed border-border/60 bg-card/40">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-inset ring-border/60">
+              <Calendar className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="text-base font-medium text-foreground">
               No events yet
             </p>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="mt-1 text-sm text-muted-foreground">
               {isBrother
                 ? "Create an event to get started."
                 : "Check back soon for upcoming events."}
@@ -230,7 +238,10 @@ export function EventsClient({
             );
 
             return (
-              <Card key={event.id} className="flex flex-col">
+              <Card
+                key={event.id}
+                className="group flex flex-col border-border/60 bg-card/40 backdrop-blur-xl transition-all hover:border-primary/30 hover:shadow-[0_20px_60px_-30px_var(--rail-glow)]"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -243,24 +254,23 @@ export function EventsClient({
                         </CardDescription>
                       )}
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className="flex shrink-0 flex-col items-center px-2.5 py-1 text-center"
-                    >
-                      <span className="text-[10px] font-medium uppercase leading-none">
+                    <div className="flex shrink-0 flex-col items-center rounded-md border border-border/60 bg-muted/30 px-2.5 py-1 text-center">
+                      <span className="font-mono text-[0.6rem] font-medium uppercase leading-none tracking-widest text-muted-foreground">
                         {format(eventDate, "MMM")}
                       </span>
-                      <span className="text-base font-bold leading-tight">
+                      <span className="mt-0.5 font-mono text-base font-semibold leading-tight tabular-nums text-foreground">
                         {format(eventDate, "d")}
                       </span>
-                    </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                  <div className="text-muted-foreground space-y-1.5 text-sm">
+                  <div className="space-y-1.5 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-3.5 w-3.5 shrink-0" />
-                      <span>{format(eventDate, "EEEE, MMM d · h:mm a")}</span>
+                      <Calendar className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                      <span className="font-mono text-xs">
+                        {format(eventDate, "EEE, MMM d · h:mm a")}
+                      </span>
                     </div>
                     {event.location && (
                       <div className="flex items-center gap-2">
@@ -273,9 +283,12 @@ export function EventsClient({
                       <span>{event.createdBy.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <PenTool className="h-3.5 w-3.5 shrink-0" />
+                      <PenTool className="h-3.5 w-3.5 shrink-0 text-cyan-400/80" />
                       <span>
-                        {event._count.signatures} signature
+                        <span className="font-mono tabular-nums text-foreground">
+                          {event._count.signatures}
+                        </span>{" "}
+                        signature
                         {event._count.signatures !== 1 && "s"} awarded
                       </span>
                     </div>
@@ -321,10 +334,10 @@ export function EventsClient({
                                     onClick={() =>
                                       handleAwardSignature(event.id, pledge.id)
                                     }
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent"
+                                    className="flex w-full items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border/60 hover:bg-muted/40 disabled:cursor-default disabled:opacity-60 disabled:hover:border-transparent disabled:hover:bg-transparent"
                                   >
                                     <div className="flex items-center gap-3">
-                                      <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium">
+                                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 text-[0.7rem] font-medium text-foreground ring-1 ring-inset ring-border/60">
                                         {pledge.name
                                           .split(" ")
                                           .map((n) => n[0])

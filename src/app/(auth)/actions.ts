@@ -2,7 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+
+function friendlyAuthError(message: string) {
+  const lower = message.toLowerCase();
+  if (lower.includes("rate limit") || lower.includes("too many")) {
+    return "Too many attempts. Wait a bit, or turn off email confirmation in Supabase (Auth → Providers → Email) while developing.";
+  }
+  return message;
+}
 
 export async function login(
   _prevState: { error: string } | null,
@@ -23,10 +30,10 @@ export async function login(
   });
 
   if (error) {
-    return { error: error.message };
+    return { error: friendlyAuthError(error.message) };
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function register(
@@ -55,28 +62,35 @@ export async function register(
   });
 
   if (signUpError) {
-    return { error: signUpError.message };
+    return { error: friendlyAuthError(signUpError.message) };
   }
 
   if (!data.user) {
     return { error: "Sign-up failed. Please try again." };
   }
 
-  try {
-    await prisma.user.create({
-      data: {
-        authId: data.user.id,
-        name,
-        email,
-        role,
-        pledgeClass: role === "PLEDGE" ? pledgeClass || null : null,
-      },
-    });
-  } catch {
-    return { error: "Failed to create user profile. Please try again." };
+  const { error: insertError } = await supabase.from("User").insert({
+    id: crypto.randomUUID(),
+    authId: data.user.id,
+    name,
+    email,
+    role,
+    pledgeClass: role === "PLEDGE" ? pledgeClass || null : null,
+  });
+
+  if (insertError) {
+    const hint =
+      insertError.code === "42501" ||
+      insertError.message.toLowerCase().includes("row-level security") ||
+      insertError.message.toLowerCase().includes("permission denied")
+        ? " In Supabase: SQL Editor → run `supabase/migrations/0002_disable_rls/migration.sql` (disables RLS on app tables)."
+        : "";
+    return {
+      error: `Could not save your profile: ${insertError.message}.${hint}`,
+    };
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function logout() {

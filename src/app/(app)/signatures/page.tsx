@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { startOfISOWeek } from "date-fns";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/header";
 import { WeeklySignaturesClient } from "@/components/weekly-signatures-client";
 
@@ -36,6 +36,8 @@ export default async function SignaturesPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const supabase = await createClient();
+
   const params = await searchParams;
   const currentWeek =
     typeof params.week === "string" ? params.week : getCurrentISOWeek();
@@ -45,50 +47,60 @@ export default async function SignaturesPage({
   prevWeekStart.setDate(prevWeekStart.getDate() - 7);
 
   const [
-    pledges,
-    currentWeekCounts,
-    lastWeekCounts,
-    cumulativeCounts,
-    weekSignatures,
+    pledgesResult,
+    currentWeekSigsResult,
+    lastWeekSigsResult,
+    cumulativeSigsResult,
+    weekSigsDetailResult,
   ] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: "PLEDGE" },
-      select: { id: true, name: true, pledgeClass: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.signature.groupBy({
-      by: ["pledgeId"],
-      where: { createdAt: { gte: weekStart, lt: weekEnd } },
-      _count: { id: true },
-    }),
-    prisma.signature.groupBy({
-      by: ["pledgeId"],
-      where: { createdAt: { gte: prevWeekStart, lt: weekStart } },
-      _count: { id: true },
-    }),
-    prisma.signature.groupBy({
-      by: ["pledgeId"],
-      _count: { id: true },
-    }),
-    prisma.signature.findMany({
-      where: { createdAt: { gte: weekStart, lt: weekEnd } },
-      include: {
-        brother: { select: { name: true } },
-        event: { select: { title: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
+    supabase
+      .from("User")
+      .select("id, name, pledgeClass")
+      .eq("role", "PLEDGE")
+      .order("name"),
+    supabase
+      .from("Signature")
+      .select("pledgeId")
+      .gte("createdAt", weekStart.toISOString())
+      .lt("createdAt", weekEnd.toISOString()),
+    supabase
+      .from("Signature")
+      .select("pledgeId")
+      .gte("createdAt", prevWeekStart.toISOString())
+      .lt("createdAt", weekStart.toISOString()),
+    supabase.from("Signature").select("pledgeId"),
+    supabase
+      .from("Signature")
+      .select(
+        "*, brother:User!Signature_brotherId_fkey(name), event:Event!Signature_eventId_fkey(title)"
+      )
+      .gte("createdAt", weekStart.toISOString())
+      .lt("createdAt", weekEnd.toISOString())
+      .order("createdAt", { ascending: false }),
   ]);
 
-  const currentMap = new Map(
-    currentWeekCounts.map((c) => [c.pledgeId, c._count.id])
-  );
-  const lastMap = new Map(
-    lastWeekCounts.map((c) => [c.pledgeId, c._count.id])
-  );
-  const cumulativeMap = new Map(
-    cumulativeCounts.map((c) => [c.pledgeId, c._count.id])
-  );
+  const pledges = pledgesResult.data ?? [];
+  const currentWeekSigs: { pledgeId: string }[] =
+    currentWeekSigsResult.data ?? [];
+  const lastWeekSigs: { pledgeId: string }[] = lastWeekSigsResult.data ?? [];
+  const cumulativeSigs: { pledgeId: string }[] =
+    cumulativeSigsResult.data ?? [];
+  const weekSignatures = weekSigsDetailResult.data ?? [];
+
+  const currentMap = new Map<string, number>();
+  for (const s of currentWeekSigs) {
+    currentMap.set(s.pledgeId, (currentMap.get(s.pledgeId) ?? 0) + 1);
+  }
+
+  const lastMap = new Map<string, number>();
+  for (const s of lastWeekSigs) {
+    lastMap.set(s.pledgeId, (lastMap.get(s.pledgeId) ?? 0) + 1);
+  }
+
+  const cumulativeMap = new Map<string, number>();
+  for (const s of cumulativeSigs) {
+    cumulativeMap.set(s.pledgeId, (cumulativeMap.get(s.pledgeId) ?? 0) + 1);
+  }
 
   const sigsByPledge: Record<string, typeof weekSignatures> = {};
   for (const sig of weekSignatures) {
@@ -96,22 +108,31 @@ export default async function SignaturesPage({
     sigsByPledge[sig.pledgeId].push(sig);
   }
 
-  const pledgeData = pledges.map((pledge) => ({
-    pledge: {
-      id: pledge.id,
-      name: pledge.name,
-      pledgeClass: pledge.pledgeClass,
-    },
-    thisWeekCount: currentMap.get(pledge.id) ?? 0,
-    lastWeekCount: lastMap.get(pledge.id) ?? 0,
-    cumulativeTotal: cumulativeMap.get(pledge.id) ?? 0,
-    signatures: (sigsByPledge[pledge.id] ?? []).map((sig) => ({
-      id: sig.id,
-      brother: { name: sig.brother.name },
-      event: { title: sig.event.title },
-      createdAt: sig.createdAt.toISOString(),
-    })),
-  }));
+  const pledgeData = pledges.map(
+    (pledge: { id: string; name: string; pledgeClass: string | null }) => ({
+      pledge: {
+        id: pledge.id,
+        name: pledge.name,
+        pledgeClass: pledge.pledgeClass,
+      },
+      thisWeekCount: currentMap.get(pledge.id) ?? 0,
+      lastWeekCount: lastMap.get(pledge.id) ?? 0,
+      cumulativeTotal: cumulativeMap.get(pledge.id) ?? 0,
+      signatures: (sigsByPledge[pledge.id] ?? []).map(
+        (sig: {
+          id: string;
+          brother: { name: string };
+          event: { title: string };
+          createdAt: string;
+        }) => ({
+          id: sig.id,
+          brother: { name: sig.brother.name },
+          event: { title: sig.event.title },
+          createdAt: sig.createdAt,
+        })
+      ),
+    })
+  );
 
   return (
     <>

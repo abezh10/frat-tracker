@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser, isBrotherOrAdmin } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function DELETE(
   _request: NextRequest,
@@ -11,7 +11,7 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (user.role !== "BROTHER") {
+    if (!isBrotherOrAdmin(user.role)) {
       return NextResponse.json(
         { error: "Only brothers can delete events" },
         { status: 403 }
@@ -19,9 +19,12 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const supabase = await createClient();
 
-    await prisma.signature.deleteMany({ where: { eventId: id } });
-    await prisma.event.delete({ where: { id } });
+    await supabase.from("Signature").delete().eq("eventId", id);
+    const { error } = await supabase.from("Event").delete().eq("id", id);
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch {

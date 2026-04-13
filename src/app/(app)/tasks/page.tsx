@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/header";
 import { TasksClient } from "@/components/tasks-client";
 
@@ -9,34 +9,37 @@ export default async function TasksPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const where = user.role === "PLEDGE" ? { assignedToId: user.id } : {};
+  const supabase = await createClient();
 
-  const tasks = await prisma.task.findMany({
-    where,
-    include: {
-      assignedTo: { select: { id: true, name: true } },
-      assignedBy: { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  let tasksQuery = supabase
+    .from("Task")
+    .select(
+      "*, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name)"
+    )
+    .order("createdAt", { ascending: false });
 
-  const pledges = await prisma.user.findMany({
-    where: { role: "PLEDGE" },
-    select: { id: true, name: true },
-  });
+  if (user.role === "PLEDGE") {
+    tasksQuery = tasksQuery.eq("assignedToId", user.id);
+  }
 
-  const serializedTasks = tasks.map((task) => ({
-    ...task,
-    dueDate: task.dueDate?.toISOString() ?? null,
-    createdAt: task.createdAt.toISOString(),
-  }));
+  const [tasksResult, pledgesResult] = await Promise.all([
+    tasksQuery,
+    supabase
+      .from("User")
+      .select("id, name")
+      .eq("role", "PLEDGE")
+      .order("name"),
+  ]);
+
+  const tasks = tasksResult.data ?? [];
+  const pledges = pledgesResult.data ?? [];
 
   return (
     <>
       <Header title="Tasks" />
       <div className="flex-1 p-4 md:p-6">
         <TasksClient
-          tasks={serializedTasks}
+          tasks={tasks}
           currentUser={{ id: user.id, name: user.name, role: user.role }}
           pledges={pledges}
         />

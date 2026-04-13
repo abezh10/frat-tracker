@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { startOfISOWeek, endOfISOWeek } from "date-fns";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/header";
 import { MembersClient } from "@/components/members-client";
 
@@ -10,82 +10,123 @@ export default async function MembersPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/login");
 
-  const allUsers = await prisma.user.findMany({
-    orderBy: { name: "asc" },
-  });
+  const supabase = await createClient();
 
-  const brothers = allUsers
-    .filter((u) => u.role === "BROTHER")
-    .map((u) => ({
+  const [brothersResult, pledgesResult] = await Promise.all([
+    supabase
+      .from("User")
+      .select("id, name, email, role, createdAt")
+      .in("role", ["BROTHER", "ADMIN"])
+      .order("name"),
+    supabase
+      .from("User")
+      .select("id, name, email, role, pledgeClass, createdAt")
+      .eq("role", "PLEDGE")
+      .order("name"),
+  ]);
+
+  const brothers = (brothersResult.data ?? []).map(
+    (u: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      createdAt: string;
+    }) => ({
       id: u.id,
       name: u.name,
       email: u.email,
       role: u.role,
-      createdAt: u.createdAt.toISOString(),
-    }));
+      createdAt: u.createdAt,
+    })
+  );
 
-  const pledgeUsers = allUsers.filter((u) => u.role === "PLEDGE");
-  const pledgeIds = pledgeUsers.map((u) => u.id);
+  const pledgeUsers = pledgesResult.data ?? [];
+  const pledgeIds = pledgeUsers.map((u: { id: string }) => u.id);
 
   const now = new Date();
   const weekStart = startOfISOWeek(now);
   const weekEnd = endOfISOWeek(now);
 
-  const [tasks, weeklySignatures, totalSignatures] = await Promise.all([
-    prisma.task.groupBy({
-      by: ["assignedToId", "status"],
-      where: { assignedToId: { in: pledgeIds } },
-      _count: { id: true },
-    }),
-    prisma.signature.groupBy({
-      by: ["pledgeId"],
-      where: {
-        pledgeId: { in: pledgeIds },
-        createdAt: { gte: weekStart, lte: weekEnd },
-      },
-      _count: { id: true },
-    }),
-    prisma.signature.groupBy({
-      by: ["pledgeId"],
-      where: { pledgeId: { in: pledgeIds } },
-      _count: { id: true },
-    }),
-  ]);
+  let allTasks: { assignedToId: string; status: string }[] = [];
+  let weeklySigs: { pledgeId: string }[] = [];
+  let totalSigs: { pledgeId: string }[] = [];
+
+  if (pledgeIds.length > 0) {
+    const [tasksResult, weeklyResult, totalResult] = await Promise.all([
+      supabase
+        .from("Task")
+        .select("assignedToId, status")
+        .in("assignedToId", pledgeIds),
+      supabase
+        .from("Signature")
+        .select("pledgeId")
+        .in("pledgeId", pledgeIds)
+        .gte("createdAt", weekStart.toISOString())
+        .lte("createdAt", weekEnd.toISOString()),
+      supabase
+        .from("Signature")
+        .select("pledgeId")
+        .in("pledgeId", pledgeIds),
+    ]);
+
+    allTasks = tasksResult.data ?? [];
+    weeklySigs = weeklyResult.data ?? [];
+    totalSigs = totalResult.data ?? [];
+  }
 
   const taskStatsByPledge = new Map<
     string,
     { total: number; completed: number }
   >();
-  for (const row of tasks) {
-    const existing = taskStatsByPledge.get(row.assignedToId) ?? {
+  for (const task of allTasks) {
+    const existing = taskStatsByPledge.get(task.assignedToId) ?? {
       total: 0,
       completed: 0,
     };
-    existing.total += row._count.id;
-    if (row.status === "COMPLETED") {
-      existing.completed += row._count.id;
+    existing.total += 1;
+    if (task.status === "COMPLETED") {
+      existing.completed += 1;
     }
-    taskStatsByPledge.set(row.assignedToId, existing);
+    taskStatsByPledge.set(task.assignedToId, existing);
   }
 
-  const weeklyByPledge = new Map(
-    weeklySignatures.map((r) => [r.pledgeId, r._count.id])
-  );
-  const totalByPledge = new Map(
-    totalSignatures.map((r) => [r.pledgeId, r._count.id])
-  );
+  const weeklyByPledge = new Map<string, number>();
+  for (const sig of weeklySigs) {
+    weeklyByPledge.set(
+      sig.pledgeId,
+      (weeklyByPledge.get(sig.pledgeId) ?? 0) + 1
+    );
+  }
 
-  const pledges = pledgeUsers.map((u) => ({
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    role: u.role,
-    pledgeClass: u.pledgeClass,
-    createdAt: u.createdAt.toISOString(),
-    taskStats: taskStatsByPledge.get(u.id) ?? { total: 0, completed: 0 },
-    weeklySignatures: weeklyByPledge.get(u.id) ?? 0,
-    totalSignatures: totalByPledge.get(u.id) ?? 0,
-  }));
+  const totalByPledge = new Map<string, number>();
+  for (const sig of totalSigs) {
+    totalByPledge.set(
+      sig.pledgeId,
+      (totalByPledge.get(sig.pledgeId) ?? 0) + 1
+    );
+  }
+
+  const pledges = pledgeUsers.map(
+    (u: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      pledgeClass: string | null;
+      createdAt: string;
+    }) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      pledgeClass: u.pledgeClass,
+      createdAt: u.createdAt,
+      taskStats: taskStatsByPledge.get(u.id) ?? { total: 0, completed: 0 },
+      weeklySignatures: weeklyByPledge.get(u.id) ?? 0,
+      totalSignatures: totalByPledge.get(u.id) ?? 0,
+    })
+  );
 
   return (
     <>

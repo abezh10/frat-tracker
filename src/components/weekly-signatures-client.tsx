@@ -74,19 +74,33 @@ function shiftWeek(isoWeek: string, direction: number): string {
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
-      <Badge className="gap-0.5 bg-amber-500 text-white">
-        <Trophy className="size-3" />
-        1
+      <Badge className="gap-0.5 bg-amber-500/20 font-mono text-amber-300 tabular-nums ring-1 ring-inset ring-amber-400/40">
+        <Trophy className="size-3" />1
       </Badge>
     );
   }
   if (rank === 2) {
-    return <Badge className="bg-slate-400 text-white">2</Badge>;
+    return (
+      <Badge className="bg-zinc-400/15 font-mono text-zinc-200 tabular-nums ring-1 ring-inset ring-zinc-300/30">
+        2
+      </Badge>
+    );
   }
   if (rank === 3) {
-    return <Badge className="bg-amber-700 text-white">3</Badge>;
+    return (
+      <Badge className="bg-orange-500/15 font-mono text-orange-300 tabular-nums ring-1 ring-inset ring-orange-400/30">
+        3
+      </Badge>
+    );
   }
-  return <Badge variant="outline">{rank}</Badge>;
+  return (
+    <Badge
+      variant="outline"
+      className="border-border/60 bg-muted/20 font-mono tabular-nums text-muted-foreground"
+    >
+      {rank}
+    </Badge>
+  );
 }
 
 function TrendIndicator({
@@ -98,17 +112,21 @@ function TrendIndicator({
 }) {
   if (current > previous) {
     return (
-      <span className="inline-flex items-center gap-1 text-emerald-600">
+      <span className="inline-flex items-center gap-1 text-emerald-400">
         <TrendingUp className="size-4" />
-        <span className="text-xs font-medium">+{current - previous}</span>
+        <span className="font-mono text-xs tabular-nums">
+          +{current - previous}
+        </span>
       </span>
     );
   }
   if (current < previous) {
     return (
-      <span className="inline-flex items-center gap-1 text-red-500">
+      <span className="inline-flex items-center gap-1 text-red-400">
         <TrendingDown className="size-4" />
-        <span className="text-xs font-medium">{current - previous}</span>
+        <span className="font-mono text-xs tabular-nums">
+          {current - previous}
+        </span>
       </span>
     );
   }
@@ -151,54 +169,67 @@ export function WeeklySignaturesClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Week Navigation */}
-      <div className="flex items-center justify-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => goToWeek(-1)}>
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/40 p-3 backdrop-blur-xl">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => goToWeek(-1)}
+          className="border-border/60 bg-background/40 hover:border-primary/30 hover:bg-primary/10"
+        >
           <ChevronLeft />
         </Button>
         <div className="min-w-56 text-center">
-          <h2 className="text-lg font-semibold tracking-tight">
-            Week {weekNum}
+          <span className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground/80">
+            ISO Week
+          </span>
+          <h2 className="font-mono text-xl font-semibold tracking-tight tabular-nums text-foreground">
+            W{String(weekNum).padStart(2, "0")}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {format(weekStart, "MMM d")} &ndash;{" "}
             {format(weekEnd, "MMM d, yyyy")}
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => goToWeek(1)}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => goToWeek(1)}
+          className="border-border/60 bg-background/40 hover:border-primary/30 hover:bg-primary/10"
+        >
           <ChevronRight />
         </Button>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="border-border/60 bg-card/40 backdrop-blur-xl">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="font-mono text-[0.7rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Total Signatures
               </CardTitle>
               <PenTool className="size-4 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold tabular-nums">{totalSigs}</p>
+            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-foreground">{totalSigs}</p>
             <p className="mt-1 text-xs text-muted-foreground">this week</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-card/40 backdrop-blur-xl">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="font-mono text-[0.7rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Active Pledges
               </CardTitle>
               <Trophy className="size-4 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold tabular-nums">
+            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-foreground">
               {activePledges}
               <span className="text-base font-normal text-muted-foreground">
                 {" "}
@@ -211,17 +242,17 @@ export function WeeklySignaturesClient({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-card/40 backdrop-blur-xl">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="font-mono text-[0.7rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Avg per Pledge
               </CardTitle>
               <TrendingUp className="size-4 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold tabular-nums">{avg}</p>
+            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-foreground">{avg}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               signatures this week
             </p>
@@ -230,9 +261,11 @@ export function WeeklySignaturesClient({
       </div>
 
       {/* Rankings Table */}
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Pledge Rankings</CardTitle>
+      <Card className="border-border/60 bg-card/40 backdrop-blur-xl">
+        <CardHeader className="border-b border-border/60">
+          <CardTitle className="text-base font-semibold">
+            Pledge Rankings
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>

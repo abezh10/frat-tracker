@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser, isBrotherOrAdmin } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 function parseISOWeek(weekStr: string): { start: Date; end: Date } {
   const match = weekStr.match(/^(\d{4})-W(\d{2})$/);
@@ -11,7 +11,7 @@ function parseISOWeek(weekStr: string): { start: Date; end: Date } {
 
   // Jan 4 is always in week 1 per ISO 8601
   const jan4 = new Date(Date.UTC(year, 0, 4));
-  const dayOfWeek = jan4.getUTCDay() || 7; // Convert Sunday=0 to 7
+  const dayOfWeek = jan4.getUTCDay() || 7;
   const monday = new Date(jan4);
   monday.setUTCDate(jan4.getUTCDate() - dayOfWeek + 1 + (week - 1) * 7);
 
@@ -32,26 +32,28 @@ export async function GET(request: NextRequest) {
     const week = searchParams.get("week");
     const pledgeId = searchParams.get("pledgeId");
 
-    const where: Record<string, unknown> = {};
+    const supabase = await createClient();
+    let query = supabase
+      .from("Signature")
+      .select(
+        "*, event:Event!Signature_eventId_fkey(*), pledge:User!Signature_pledgeId_fkey(id, name), brother:User!Signature_brotherId_fkey(id, name)"
+      )
+      .order("createdAt", { ascending: false });
 
     if (week) {
       const { start, end } = parseISOWeek(week);
-      where.createdAt = { gte: start, lt: end };
+      query = query
+        .gte("createdAt", start.toISOString())
+        .lt("createdAt", end.toISOString());
     }
 
     if (pledgeId) {
-      where.pledgeId = pledgeId;
+      query = query.eq("pledgeId", pledgeId);
     }
 
-    const signatures = await prisma.signature.findMany({
-      where,
-      include: {
-        event: true,
-        pledge: { select: { id: true, name: true } },
-        brother: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const { data: signatures, error } = await query;
+
+    if (error) throw error;
 
     return NextResponse.json(signatures);
   } catch {
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (user.role !== "BROTHER") {
+    if (!isBrotherOrAdmin(user.role)) {
       return NextResponse.json(
         { error: "Only brothers can award signatures" },
         { status: 403 }
@@ -85,32 +87,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const signature = await prisma.signature.create({
-      data: {
+    const supabase = await createClient();
+    const { data: signature, error } = await supabase
+      .from("Signature")
+      .insert({
+        id: crypto.randomUUID(),
         eventId,
         pledgeId,
         brotherId: user.id,
-      },
-      include: {
-        event: true,
-        pledge: { select: { id: true, name: true } },
-        brother: { select: { id: true, name: true } },
-      },
-    });
+      })
+      .select(
+        "*, event:Event!Signature_eventId_fkey(*), pledge:User!Signature_pledgeId_fkey(id, name), brother:User!Signature_brotherId_fkey(id, name)"
+      )
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "Signature already awarded for this event and pledge" },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
 
     return NextResponse.json(signature, { status: 201 });
-  } catch (error: unknown) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "P2002"
-    ) {
-      return NextResponse.json(
-        { error: "Signature already awarded for this event and pledge" },
-        { status: 409 }
-      );
-    }
+  } catch {
     return NextResponse.json(
       { error: "Failed to award signature" },
       { status: 500 }

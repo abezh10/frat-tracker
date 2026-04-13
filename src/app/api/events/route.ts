@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser, isBrotherOrAdmin } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+
+const EVENT_SELECT = `
+  *,
+  createdBy:User!Event_createdById_fkey(id, name),
+  signatures:Signature(
+    *,
+    pledge:User!Signature_pledgeId_fkey(id, name),
+    brother:User!Signature_brotherId_fkey(id, name)
+  )
+`;
 
 export async function GET() {
   try {
@@ -9,21 +19,24 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const events = await prisma.event.findMany({
-      orderBy: { date: "desc" },
-      include: {
-        createdBy: { select: { id: true, name: true } },
-        signatures: {
-          include: {
-            pledge: { select: { id: true, name: true } },
-            brother: { select: { id: true, name: true } },
-          },
-        },
-        _count: { select: { signatures: true } },
-      },
-    });
+    const supabase = await createClient();
+    const { data: events, error } = await supabase
+      .from("Event")
+      .select(EVENT_SELECT)
+      .order("date", { ascending: false });
 
-    return NextResponse.json(events);
+    if (error) throw error;
+
+    const eventsWithCount = (events ?? []).map((e: Record<string, unknown>) => ({
+      ...e,
+      _count: {
+        signatures: Array.isArray(e.signatures)
+          ? e.signatures.length
+          : 0,
+      },
+    }));
+
+    return NextResponse.json(eventsWithCount);
   } catch {
     return NextResponse.json(
       { error: "Failed to fetch events" },
@@ -38,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (user.role !== "BROTHER") {
+    if (!isBrotherOrAdmin(user.role)) {
       return NextResponse.json(
         { error: "Only brothers can create events" },
         { status: 403 }
@@ -55,27 +68,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const event = await prisma.event.create({
-      data: {
+    const supabase = await createClient();
+    const { data: event, error } = await supabase
+      .from("Event")
+      .insert({
+        id: crypto.randomUUID(),
         title,
         description: description || null,
-        date: new Date(date),
+        date: new Date(date).toISOString(),
         location: location || null,
         createdById: user.id,
-      },
-      include: {
-        createdBy: { select: { id: true, name: true } },
-        signatures: {
-          include: {
-            pledge: { select: { id: true, name: true } },
-            brother: { select: { id: true, name: true } },
-          },
-        },
-        _count: { select: { signatures: true } },
-      },
-    });
+      })
+      .select(EVENT_SELECT)
+      .single();
 
-    return NextResponse.json(event, { status: 201 });
+    if (error) throw error;
+
+    const eventWithCount = {
+      ...event,
+      _count: {
+        signatures: Array.isArray(event.signatures)
+          ? event.signatures.length
+          : 0,
+      },
+    };
+
+    return NextResponse.json(eventWithCount, { status: 201 });
   } catch {
     return NextResponse.json(
       { error: "Failed to create event" },

@@ -75,11 +75,11 @@ function statusLabel(status: string) {
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     PENDING:
-      "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
+      "bg-amber-500/10 text-amber-300 ring-1 ring-inset ring-amber-400/25",
     IN_PROGRESS:
-      "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
+      "bg-primary/10 text-primary ring-1 ring-inset ring-primary/30",
     COMPLETED:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400",
+      "bg-emerald-500/10 text-emerald-300 ring-1 ring-inset ring-emerald-400/25",
   };
 
   return (
@@ -133,7 +133,7 @@ function TaskCard({
   }
 
   return (
-    <Card className="transition-all duration-200 hover:shadow-md hover:ring-foreground/20">
+    <Card className="group border-border/60 bg-card/40 backdrop-blur-xl transition-all duration-200 hover:border-primary/30 hover:shadow-[0_20px_60px_-30px_var(--rail-glow)]">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="line-clamp-2">{task.title}</CardTitle>
@@ -157,37 +157,41 @@ function TaskCard({
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {task.description && (
-          <p className="text-sm text-muted-foreground line-clamp-3">
+          <p className="line-clamp-3 text-sm text-muted-foreground">
             {task.description}
           </p>
         )}
 
-        <div className="space-y-1.5 text-xs text-muted-foreground">
+        <div className="space-y-1.5 rounded-md border border-border/60 bg-muted/20 p-3 text-xs">
           <div className="flex items-center justify-between">
-            <span>Assigned to</span>
+            <span className="font-mono uppercase tracking-wider text-muted-foreground/70">
+              Assigned to
+            </span>
             <span className="font-medium text-foreground">
               {task.assignedTo.name}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span>Assigned by</span>
+            <span className="font-mono uppercase tracking-wider text-muted-foreground/70">
+              Assigned by
+            </span>
             <span className="font-medium text-foreground">
               {task.assignedBy.name}
             </span>
           </div>
           {task.dueDate && (
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 font-mono uppercase tracking-wider text-muted-foreground/70">
                 <CalendarDays className="size-3" />
                 Due
               </span>
               <span
                 className={
                   isOverdue
-                    ? "font-medium text-destructive"
-                    : "font-medium text-foreground"
+                    ? "font-mono font-medium tabular-nums text-destructive"
+                    : "font-mono font-medium tabular-nums text-foreground"
                 }
               >
                 {format(new Date(task.dueDate), "MMM d, yyyy")}
@@ -239,7 +243,7 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
 
-  const isBrother = currentUser.role === "BROTHER";
+  const isBrother = currentUser.role === "BROTHER" || currentUser.role === "ADMIN";
 
   const pendingTasks = tasks.filter((t) => t.status === "PENDING");
   const inProgressTasks = tasks.filter((t) => t.status === "IN_PROGRESS");
@@ -292,11 +296,11 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
   function renderTaskGrid(taskList: Task[]) {
     if (taskList.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-          <Circle className="size-10 text-muted-foreground/40" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            No tasks found.
-          </p>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/30 py-16">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-inset ring-border/60">
+            <Circle className="size-5 text-muted-foreground/70" />
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">No tasks found.</p>
         </div>
       );
     }
@@ -317,11 +321,20 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {tasks.length} task{tasks.length !== 1 ? "s" : ""} total
-        </p>
+    <div className="space-y-8">
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground/80">
+            Work tracker
+          </span>
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+            Tasks
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-mono tabular-nums">{tasks.length}</span> task
+            {tasks.length !== 1 ? "s" : ""} total
+          </p>
+        </div>
         {isBrother && (
           <Dialog
             open={dialogOpen}

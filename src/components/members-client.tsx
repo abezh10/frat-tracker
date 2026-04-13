@@ -47,7 +47,21 @@ export function MembersClient({
   currentUser,
 }: MembersClientProps) {
   return (
-    <Tabs defaultValue={0}>
+    <Tabs defaultValue={0} className="space-y-6">
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground/80">
+          Roster
+        </span>
+        <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+          Members
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          <span className="font-mono tabular-nums">
+            {pledges.length + brothers.length}
+          </span>{" "}
+          active across pledges and brothers
+        </p>
+      </div>
       <div className="flex items-center justify-between gap-4">
         <TabsList>
           <TabsTrigger value={0}>
@@ -106,7 +120,7 @@ function PledgeCard({
       : 0;
 
   return (
-    <Card>
+    <Card className="group border-border/60 bg-card/40 backdrop-blur-xl transition-colors hover:border-primary/30">
       <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar size="lg">
@@ -115,7 +129,10 @@ function PledgeCard({
           <div className="min-w-0 flex-1">
             <CardTitle className="truncate">{pledge.name}</CardTitle>
             {pledge.pledgeClass && (
-              <Badge variant="outline" className="mt-1">
+              <Badge
+                variant="outline"
+                className="mt-1 border-border/60 bg-muted/30 font-mono text-[0.6rem] uppercase tracking-wider"
+              >
                 {pledge.pledgeClass}
               </Badge>
             )}
@@ -169,7 +186,7 @@ function BrotherCard({
   brother: MembersClientProps["brothers"][number];
 }) {
   return (
-    <Card>
+    <Card className="group border-border/60 bg-card/40 backdrop-blur-xl transition-colors hover:border-primary/30">
       <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar size="lg">
@@ -204,8 +221,10 @@ function EmptyState({
   message: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16 text-muted-foreground">
-      <Icon className="size-10 opacity-40" />
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-card/30 py-16 text-muted-foreground">
+      <div className="flex size-12 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-inset ring-border/60">
+        <Icon className="size-5" />
+      </div>
       <p className="text-sm">{message}</p>
     </div>
   );

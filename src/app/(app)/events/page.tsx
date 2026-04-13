@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/header";
 import { EventsClient } from "@/components/events-client";
 
@@ -8,43 +8,48 @@ export default async function EventsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [events, pledges] = await Promise.all([
-    prisma.event.findMany({
-      orderBy: { date: "desc" },
-      include: {
-        createdBy: { select: { id: true, name: true } },
-        signatures: {
-          include: {
-            pledge: { select: { id: true, name: true } },
-            brother: { select: { id: true, name: true } },
-          },
-        },
-        _count: { select: { signatures: true } },
-      },
-    }),
-    prisma.user.findMany({
-      where: { role: "PLEDGE" },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+  const supabase = await createClient();
+
+  const [eventsResult, pledgesResult] = await Promise.all([
+    supabase
+      .from("Event")
+      .select(
+        `*,
+        createdBy:User!Event_createdById_fkey(id, name),
+        signatures:Signature(
+          *,
+          pledge:User!Signature_pledgeId_fkey(id, name),
+          brother:User!Signature_brotherId_fkey(id, name)
+        )`
+      )
+      .order("date", { ascending: false }),
+    supabase
+      .from("User")
+      .select("id, name")
+      .eq("role", "PLEDGE")
+      .order("name"),
   ]);
 
-  const serializedEvents = events.map((event) => ({
-    ...event,
-    date: event.date.toISOString(),
-    createdAt: event.createdAt.toISOString(),
-    signatures: event.signatures.map((sig) => ({
-      ...sig,
-      createdAt: sig.createdAt.toISOString(),
-    })),
-  }));
+  const events = eventsResult.data ?? [];
+  const pledges = pledgesResult.data ?? [];
+
+  const serializedEvents = events.map(
+    (event: {
+      signatures?: unknown[];
+      _count?: unknown;
+      [key: string]: unknown;
+    }) => ({
+      ...event,
+      _count: { signatures: event.signatures?.length ?? 0 },
+    })
+  );
 
   return (
     <>
       <Header title="Signature Events" />
       <div className="flex-1 overflow-auto p-6">
         <EventsClient
-          events={serializedEvents}
+          events={serializedEvents as unknown as React.ComponentProps<typeof EventsClient>["events"]}
           currentUser={{ id: user.id, name: user.name, role: user.role }}
           pledges={pledges}
         />
