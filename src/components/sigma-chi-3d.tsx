@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 // ---------------------------------------------------------------------------
-// Helper: trace a closed polygon with optional rounded corners.
+// Trace a closed polygon with subtle corner rounding.
 // ---------------------------------------------------------------------------
 function traceShape(
   vertices: [number, number][],
@@ -45,92 +45,114 @@ function traceShape(
 }
 
 // ---------------------------------------------------------------------------
-// Σ (Sigma) — serif-style with rectangular flares at bar terminals.
+// Σ (Sigma) — matches the reference: full-width bars, right-end serifs,
+// diagonal inner strokes meeting at a center vertex.
 // ---------------------------------------------------------------------------
 function createSigmaShape(): THREE.Shape {
-  const th = 0.28; // bar thickness (thinner for serif contrast)
-  const sw = 0.08; // serif width extension
-  const sh = 0.045; // serif height extension
+  const w = 2.1;
+  const h = 3.0;
+  const th = 0.34;
+  const sw = 0.08; // right-serif width
+  const sh = 0.05; // right-serif height
 
   return traceShape(
     [
       // Top-left corner
-      [0, 3],
+      [0, h],
       // Top bar → right end
-      [2.1, 3],
-      // Top-right serif
-      [2.1, 3 + sh],
-      [2.1 + sw, 3 + sh],
-      [2.1 + sw, 3 - th - sh],
-      [2.1, 3 - th - sh],
-      // Inner top bar edge
-      [2.1, 3 - th],
-      [th + 0.18, 3 - th],
-      // Center peak (outer)
-      [1.05, 1.5],
-      // Inner bottom bar edge
-      [th + 0.18, th],
-      [2.1, th],
+      [w, h],
+      // Top-right serif (rectangular extension above & below bar end)
+      [w, h + sh],
+      [w + sw, h + sh],
+      [w + sw, h - th - sh],
+      [w, h - th - sh],
+      // Inner edge of top bar
+      [w, h - th],
+      [0.48, h - th],
+      // Inner vertex (center of the > shape)
+      [0.65, h / 2],
+      // Inner edge of bottom bar
+      [0.48, th],
+      [w, th],
       // Bottom-right serif
-      [2.1, th + sh],
-      [2.1 + sw, th + sh],
-      [2.1 + sw, -sh],
-      [2.1, -sh],
+      [w, th + sh],
+      [w + sw, th + sh],
+      [w + sw, -sh],
+      [w, -sh],
       // Bottom bar
-      [2.1, 0],
+      [w, 0],
       [0, 0],
-      // Center peak (inner)
-      [1.05 - th * 0.3, 1.5],
+      // Outer vertex (point of the > shape)
+      [1.0, h / 2],
     ],
-    0.025,
+    0.02,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Χ (Chi) — serif-style with flared arm tips.
+// Χ (Chi) — serif X with flat horizontal caps at all four arm tips.
+// 20 vertices: 4 serif caps (3 verts each) + 4 center intersection vertices
+// + 4 inner connections.
 // ---------------------------------------------------------------------------
 function createChiShape(): THREE.Shape {
-  const hw = 0.25;
-  const sq = Math.sqrt(13);
-  const dx = (hw * 3) / sq;
-  const dy = (hw * 2) / sq;
+  const w = 2.2;
+  const h = 3.0;
+  const sfw = 0.32; // serif half-width at tips
+  const st = 0.12; // serif step height
 
-  // Serif extension at arm tips — small perpendicular widening
-  const sf = 0.06;
+  // Perpendicular offset of stroke edges (hw = 0.22)
+  const hw = 0.22;
+  const cx = w / 2;
+  const cy = h / 2;
+  const armLen = Math.hypot(cx, cy);
+  const px = (hw * cy) / armLen;
+  const py = (hw * cx) / armLen;
 
-  // Center intersections
-  const cTop: [number, number] = [1.0, 1.5 + (3 * hw * 2) / sq];
-  const cBot: [number, number] = [1.0, 1.5 - (3 * hw * 2) / sq];
-  const cLeft: [number, number] = [1.0 - (2 * hw * 2) / sq, 1.5];
-  const cRight: [number, number] = [1.0 + (2 * hw * 2) / sq, 1.5];
+  // Center intersection vertices (where adjacent stroke edges cross)
+  const cTopY = cy + (2 * hw * cy) / armLen + py * 0.6;
+  const cBotY = cy - (2 * hw * cy) / armLen - py * 0.6;
+  const cRightX = cx + (2 * hw * cx) / armLen + px * 0.6;
+  const cLeftX = cx - (2 * hw * cx) / armLen - px * 0.6;
 
   return traceShape(
     [
-      // TL arm with serif flare (wider at tip)
-      [-dx - sf, 3 - dy + sf * 0.3],
-      [dx + sf, 3 + dy - sf * 0.3],
-      cTop,
-      // TR arm with serif flare
-      [2 - dx - sf, 3 + dy - sf * 0.3],
-      [2 + dx + sf, 3 - dy + sf * 0.3],
-      cRight,
-      // BR arm with serif flare
-      [2 + dx + sf, dy - sf * 0.3],
-      [2 - dx - sf, -dy + sf * 0.3],
-      cBot,
-      // BL arm with serif flare
-      [dx + sf, -dy + sf * 0.3],
-      [-dx - sf, dy - sf * 0.3],
-      cLeft,
+      // TL arm — flat horizontal serif cap
+      [-sfw, h],
+      [sfw, h],
+      [px + 0.02, h - st],
+      // Center top
+      [cx, cTopY],
+      // TR arm
+      [w - px - 0.02, h - st],
+      [w - sfw, h],
+      [w + sfw, h],
+      [w + px + 0.02, h - st],
+      // Center right
+      [cRightX, cy],
+      // BR arm
+      [w + px + 0.02, st],
+      [w + sfw, 0],
+      [w - sfw, 0],
+      [w - px - 0.02, st],
+      // Center bottom
+      [cx, cBotY],
+      // BL arm
+      [px + 0.02, st],
+      [sfw, 0],
+      [-sfw, 0],
+      [-px - 0.02, st],
+      // Center left
+      [cLeftX, cy],
+      [-px - 0.02, h - st],
     ],
-    0.03,
+    0.02,
   );
 }
 
 const extrudeSettings: THREE.ExtrudeGeometryOptions = {
   depth: 0.5,
   bevelEnabled: true,
-  bevelThickness: 0.06,
+  bevelThickness: 0.05,
   bevelSize: 0.04,
   bevelSegments: 2,
   curveSegments: 6,
@@ -173,24 +195,26 @@ function Letters() {
     gl.domElement.onpointermove = handlePointerMove;
   });
 
+  // Gold fill — matching reference
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color("hsl(220, 45%, 35%)"),
-        metalness: 0.5,
-        roughness: 0.45,
-        emissive: new THREE.Color("hsl(220, 40%, 12%)"),
-        emissiveIntensity: 0.3,
+        color: new THREE.Color("hsl(43, 65%, 52%)"),
+        metalness: 0.35,
+        roughness: 0.4,
+        emissive: new THREE.Color("hsl(43, 55%, 18%)"),
+        emissiveIntensity: 0.35,
       }),
     [],
   );
 
+  // White outline — matching reference border
   const edgeMaterial = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color("hsl(215, 50%, 45%)"),
+        color: new THREE.Color("hsl(0, 0%, 92%)"),
         transparent: true,
-        opacity: 0.2,
+        opacity: 0.55,
       }),
     [],
   );
@@ -205,7 +229,7 @@ function Letters() {
         />
       </group>
 
-      <group position={[0.35, -1.5, -0.25]}>
+      <group position={[0.2, -1.5, -0.25]}>
         <mesh geometry={chiGeo} material={material} />
         <lineSegments
           geometry={new THREE.EdgesGeometry(chiGeo, 15)}
@@ -225,12 +249,12 @@ export function SigmaChiLetters3D() {
         gl={{ alpha: true, antialias: true }}
         dpr={[1, 2]}
       >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 5, 5]} intensity={0.7} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[5, 5, 5]} intensity={0.8} />
         <directionalLight
           position={[-3, -2, 4]}
-          intensity={0.25}
-          color="hsl(210, 60%, 50%)"
+          intensity={0.3}
+          color="hsl(40, 60%, 70%)"
         />
         <Letters />
       </Canvas>
