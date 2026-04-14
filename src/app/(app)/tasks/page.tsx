@@ -14,12 +14,12 @@ export default async function TasksPage() {
   let tasksQuery = supabase
     .from("Task")
     .select(
-      "*, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name)"
+      "*, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name), claims:TaskClaim(id, userId, claimedAt, user:User!TaskClaim_userId_fkey(id, name))"
     )
     .order("createdAt", { ascending: false });
 
   if (user.role === "PLEDGE") {
-    tasksQuery = tasksQuery.eq("assignedToId", user.id);
+    tasksQuery = tasksQuery.or(`assignedToId.eq.${user.id},openToAll.eq.true`);
   }
 
   const [tasksResult, pledgesResult] = await Promise.all([

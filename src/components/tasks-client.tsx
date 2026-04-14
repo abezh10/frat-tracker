@@ -10,6 +10,10 @@ import {
   CheckCircle2,
   Circle,
   CalendarDays,
+  Users,
+  Timer,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 
 import {
@@ -42,15 +46,26 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+interface TaskClaim {
+  id: string;
+  userId: string;
+  claimedAt: string;
+  user: { id: string; name: string };
+}
+
 interface Task {
   id: string;
   title: string;
   description: string | null;
   status: string;
-  dueDate: string | null;
+  dueAt: string | null;
+  expiresAt: string | null;
+  openToAll: boolean;
+  maxSpots: number | null;
   createdAt: string;
-  assignedTo: { id: string; name: string };
+  assignedTo: { id: string; name: string } | null;
   assignedBy: { id: string; name: string };
+  claims: TaskClaim[];
 }
 
 interface TasksClientProps {
@@ -98,21 +113,33 @@ function TaskCard({
   currentUserId,
   onUpdateStatus,
   onDelete,
+  onClaim,
+  onUnclaim,
 }: {
   task: Task;
   isBrother: boolean;
   currentUserId: string;
   onUpdateStatus: (id: string, status: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onClaim: (id: string) => Promise<void>;
+  onUnclaim: (id: string) => Promise<void>;
 }) {
   const [updating, setUpdating] = useState(false);
 
-  const isOwnTask = task.assignedTo.id === currentUserId;
+  const isOwnTask = task.assignedTo?.id === currentUserId;
   const canUpdateStatus = isBrother || isOwnTask;
   const isOverdue =
-    task.dueDate &&
-    new Date(task.dueDate) < new Date() &&
+    task.dueAt &&
+    new Date(task.dueAt) < new Date() &&
     task.status !== "COMPLETED";
+  const isExpired =
+    task.expiresAt &&
+    new Date(task.expiresAt) < new Date() &&
+    task.status !== "COMPLETED";
+
+  const userClaimed = task.claims?.some((c) => c.userId === currentUserId);
+  const claimCount = task.claims?.length ?? 0;
+  const spotsFull = task.maxSpots != null && claimCount >= task.maxSpots;
 
   async function handleStatusChange(newStatus: string) {
     setUpdating(true);
@@ -127,6 +154,24 @@ function TaskCard({
     setUpdating(true);
     try {
       await onDelete(task.id);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleClaim() {
+    setUpdating(true);
+    try {
+      await onClaim(task.id);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleUnclaim() {
+    setUpdating(true);
+    try {
+      await onUnclaim(task.id);
     } finally {
       setUpdating(false);
     }
@@ -149,10 +194,21 @@ function TaskCard({
             </Button>
           )}
         </div>
-        <CardDescription className="flex items-center gap-2">
+        <CardDescription className="flex flex-wrap items-center gap-2">
           <StatusBadge status={task.status} />
           {isOverdue && (
             <Badge variant="destructive">Overdue</Badge>
+          )}
+          {isExpired && (
+            <Badge className="bg-amber-500/10 text-amber-300 ring-1 ring-inset ring-amber-400/25">
+              Expired
+            </Badge>
+          )}
+          {task.openToAll && (
+            <Badge className="bg-cyan-500/10 text-cyan-300 ring-1 ring-inset ring-cyan-400/25">
+              <Users className="size-3" />
+              Open
+            </Badge>
           )}
         </CardDescription>
       </CardHeader>
@@ -165,14 +221,25 @@ function TaskCard({
         )}
 
         <div className="space-y-1.5 rounded-md border border-border/60 bg-muted/20 p-3 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="font-mono uppercase tracking-wider text-muted-foreground/70">
-              Assigned to
-            </span>
-            <span className="font-medium text-foreground">
-              {task.assignedTo.name}
-            </span>
-          </div>
+          {task.openToAll ? (
+            <div className="flex items-center justify-between">
+              <span className="font-mono uppercase tracking-wider text-muted-foreground/70">
+                Spots
+              </span>
+              <span className="font-mono font-medium tabular-nums text-foreground">
+                {claimCount}{task.maxSpots != null ? ` / ${task.maxSpots}` : ""} claimed
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="font-mono uppercase tracking-wider text-muted-foreground/70">
+                Assigned to
+              </span>
+              <span className="font-medium text-foreground">
+                {task.assignedTo?.name ?? "—"}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="font-mono uppercase tracking-wider text-muted-foreground/70">
               Assigned by
@@ -181,7 +248,7 @@ function TaskCard({
               {task.assignedBy.name}
             </span>
           </div>
-          {task.dueDate && (
+          {task.dueAt && (
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1 font-mono uppercase tracking-wider text-muted-foreground/70">
                 <CalendarDays className="size-3" />
@@ -194,40 +261,99 @@ function TaskCard({
                     : "font-mono font-medium tabular-nums text-foreground"
                 }
               >
-                {format(new Date(task.dueDate), "MMM d, yyyy")}
+                {format(new Date(task.dueAt), "MMM d, yyyy · h:mm a")}
+              </span>
+            </div>
+          )}
+          {task.expiresAt && (
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1 font-mono uppercase tracking-wider text-muted-foreground/70">
+                <Timer className="size-3" />
+                Expires
+              </span>
+              <span
+                className={
+                  isExpired
+                    ? "font-mono font-medium tabular-nums text-destructive"
+                    : "font-mono font-medium tabular-nums text-foreground"
+                }
+              >
+                {format(new Date(task.expiresAt), "MMM d, yyyy · h:mm a")}
               </span>
             </div>
           )}
         </div>
 
-        {canUpdateStatus && task.status !== "COMPLETED" && (
-          <div className="flex gap-2 pt-1">
-            {task.status === "PENDING" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => handleStatusChange("IN_PROGRESS")}
-                disabled={updating}
-              >
-                <Clock className="size-3.5" />
-                Start
-              </Button>
-            )}
-            {(task.status === "PENDING" || task.status === "IN_PROGRESS") && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => handleStatusChange("COMPLETED")}
-                disabled={updating}
-              >
-                <CheckCircle2 className="size-3.5" />
-                Complete
-              </Button>
-            )}
+        {task.openToAll && task.claims.length > 0 && (
+          <div className="space-y-1">
+            <p className="font-mono text-[0.65rem] uppercase tracking-wider text-muted-foreground/70">
+              Claimed by
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {task.claims.map((c) => (
+                <Badge key={c.id} variant="secondary" className="text-xs">
+                  {c.user.name}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          {task.openToAll && !isBrother && !userClaimed && !spotsFull && task.status !== "COMPLETED" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={handleClaim}
+              disabled={updating}
+            >
+              <UserPlus className="size-3.5" />
+              Claim Spot
+            </Button>
+          )}
+          {task.openToAll && !isBrother && userClaimed && task.status !== "COMPLETED" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={handleUnclaim}
+              disabled={updating}
+            >
+              <UserMinus className="size-3.5" />
+              Unclaim
+            </Button>
+          )}
+
+          {canUpdateStatus && task.status !== "COMPLETED" && (
+            <>
+              {task.status === "PENDING" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleStatusChange("IN_PROGRESS")}
+                  disabled={updating}
+                >
+                  <Clock className="size-3.5" />
+                  Start
+                </Button>
+              )}
+              {(task.status === "PENDING" || task.status === "IN_PROGRESS") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleStatusChange("COMPLETED")}
+                  disabled={updating}
+                >
+                  <CheckCircle2 className="size-3.5" />
+                  Complete
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -240,8 +366,11 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [assignMode, setAssignMode] = useState<"specific" | "open">("specific");
   const [assigneeId, setAssigneeId] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [maxSpots, setMaxSpots] = useState("");
+  const [dueAt, setDueAt] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
 
   const isBrother = currentUser.role === "BROTHER" || currentUser.role === "ADMIN";
 
@@ -252,8 +381,11 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
   function resetForm() {
     setTitle("");
     setDescription("");
+    setAssignMode("specific");
     setAssigneeId("");
-    setDueDate("");
+    setMaxSpots("");
+    setDueAt("");
+    setExpiresAt("");
   }
 
   async function handleCreateTask(e: React.FormEvent) {
@@ -266,8 +398,11 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
         body: JSON.stringify({
           title,
           description: description || null,
-          assignedToId: assigneeId,
-          dueDate: dueDate || null,
+          assignedToId: assignMode === "specific" ? assigneeId : null,
+          dueAt: dueAt || null,
+          expiresAt: expiresAt || null,
+          openToAll: assignMode === "open",
+          maxSpots: assignMode === "open" && maxSpots ? Number(maxSpots) : null,
         }),
       });
       if (!res.ok) return;
@@ -293,6 +428,20 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
     if (res.ok) router.refresh();
   }
 
+  async function handleClaim(taskId: string) {
+    const res = await fetch(`/api/tasks/${taskId}/claim`, { method: "POST" });
+    if (res.ok) router.refresh();
+  }
+
+  async function handleUnclaim(taskId: string) {
+    const res = await fetch(`/api/tasks/${taskId}/claim`, { method: "DELETE" });
+    if (res.ok) router.refresh();
+  }
+
+  const canCreate = assignMode === "open"
+    ? !!title
+    : !!title && !!assigneeId;
+
   function renderTaskGrid(taskList: Task[]) {
     if (taskList.length === 0) {
       return (
@@ -314,6 +463,8 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
             currentUserId={currentUser.id}
             onUpdateStatus={handleUpdateStatus}
             onDelete={handleDelete}
+            onClaim={handleClaim}
+            onUnclaim={handleUnclaim}
           />
         ))}
       </div>
@@ -351,7 +502,7 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
               <DialogHeader>
                 <DialogTitle>Create Task</DialogTitle>
                 <DialogDescription>
-                  Assign a new task to a pledge.
+                  Assign a new task to a pledge or open it up for anyone.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateTask} className="space-y-4">
@@ -375,36 +526,92 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
                     rows={3}
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label>Assign to</Label>
+                  <Label>Assignment</Label>
                   <Select
-                    value={assigneeId}
-                    onValueChange={(v) => { if (v) setAssigneeId(v); }}
-                    required
+                    value={assignMode}
+                    onValueChange={(v) => {
+                      if (v === "specific" || v === "open") setAssignMode(v);
+                    }}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a pledge" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {pledges.map((pledge) => (
-                        <SelectItem key={pledge.id} value={pledge.id}>
-                          {pledge.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="specific">Assign to specific pledge</SelectItem>
+                      <SelectItem value="open">Open to all pledges</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {assignMode === "specific" && (
+                  <div className="space-y-2">
+                    <Label>Assign to</Label>
+                    <Select
+                      value={assigneeId}
+                      onValueChange={(v) => { if (v) setAssigneeId(v); }}
+                      required
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a pledge" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pledges.map((pledge) => (
+                          <SelectItem key={pledge.id} value={pledge.id}>
+                            {pledge.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {assignMode === "open" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="max-spots">Max Spots</Label>
+                    <Input
+                      id="max-spots"
+                      type="number"
+                      min={1}
+                      placeholder="Unlimited if empty"
+                      value={maxSpots}
+                      onChange={(e) => setMaxSpots(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty for unlimited sign-ups.
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label htmlFor="task-due-date">Due Date</Label>
+                  <Label htmlFor="task-due-at">Due Date & Time</Label>
                   <Input
-                    id="task-due-date"
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
+                    id="task-due-at"
+                    type="datetime-local"
+                    value={dueAt}
+                    onChange={(e) => setDueAt(e.target.value)}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="task-expires-at">
+                    Expires At{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="task-expires-at"
+                    type="datetime-local"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Task becomes unavailable after this time.
+                  </p>
+                </div>
+
                 <DialogFooter>
-                  <Button type="submit" disabled={loading || !title || !assigneeId}>
+                  <Button type="submit" disabled={loading || !canCreate}>
                     {loading ? "Creating..." : "Create Task"}
                   </Button>
                 </DialogFooter>

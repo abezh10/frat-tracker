@@ -3,6 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, isBrotherOrAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+const TASK_SELECT = `
+  *,
+  assignedTo:User!Task_assignedToId_fkey(id, name),
+  assignedBy:User!Task_assignedById_fkey(id, name),
+  claims:TaskClaim(id, userId, claimedAt, user:User!TaskClaim_userId_fkey(id, name))
+`;
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -45,9 +52,7 @@ export async function PATCH(
     .from("Task")
     .update({ status })
     .eq("id", id)
-    .select(
-      "*, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name)"
-    )
+    .select(TASK_SELECT)
     .single();
 
   if (updateError) {

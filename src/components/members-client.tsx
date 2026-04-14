@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Users, User, CheckCircle2, PenTool, Calendar } from "lucide-react";
+import { Users, User, CheckCircle2, PenTool, Calendar, Phone } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,6 +15,7 @@ interface MembersClientProps {
     id: string;
     name: string;
     email: string;
+    phone: string;
     role: string;
     createdAt: string;
   }>;
@@ -22,6 +23,7 @@ interface MembersClientProps {
     id: string;
     name: string;
     email: string;
+    phone: string;
     role: string;
     pledgeClass: string | null;
     createdAt: string;
@@ -128,6 +130,15 @@ function PledgeCard({
           </Avatar>
           <div className="min-w-0 flex-1">
             <CardTitle className="truncate">{pledge.name}</CardTitle>
+            <p className="truncate text-sm text-muted-foreground">
+              {pledge.email}
+            </p>
+            {pledge.phone && (
+              <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Phone className="size-3" />
+                {pledge.phone}
+              </p>
+            )}
             {pledge.pledgeClass && (
               <Badge
                 variant="outline"
@@ -197,6 +208,12 @@ function BrotherCard({
             <p className="truncate text-sm text-muted-foreground">
               {brother.email}
             </p>
+            {brother.phone && (
+              <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Phone className="size-3" />
+                {brother.phone}
+              </p>
+            )}
           </div>
         </div>
       </CardHeader>

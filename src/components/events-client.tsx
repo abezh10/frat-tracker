@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LocationPicker, LocationPreview } from "@/components/location-picker";
 
 interface EventsClientProps {
   events: Array<{
@@ -188,11 +189,11 @@ export function EventsClient({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="location">Location</Label>
-                  <Input
+                  <LocationPicker
                     id="location"
                     placeholder="Where is this event?"
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    onChange={setLocation}
                   />
                 </div>
                 <DialogFooter>
@@ -273,10 +274,13 @@ export function EventsClient({
                       </span>
                     </div>
                     {event.location && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{event.location}</span>
-                      </div>
+                      <>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                        <LocationPreview location={event.location} />
+                      </>
                     )}
                     <div className="flex items-center gap-2">
                       <User className="h-3.5 w-3.5 shrink-0" />

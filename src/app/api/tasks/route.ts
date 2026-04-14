@@ -3,6 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, isBrotherOrAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+const TASK_SELECT = `
+  *,
+  assignedTo:User!Task_assignedToId_fkey(id, name),
+  assignedBy:User!Task_assignedById_fkey(id, name),
+  claims:TaskClaim(id, userId, claimedAt, user:User!TaskClaim_userId_fkey(id, name))
+`;
+
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -16,13 +23,11 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   let query = supabase
     .from("Task")
-    .select(
-      "*, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name)"
-    )
+    .select(TASK_SELECT)
     .order("createdAt", { ascending: false });
 
   if (!isBrotherOrAdmin(user.role)) {
-    query = query.eq("assignedToId", user.id);
+    query = query.or(`assignedToId.eq.${user.id},openToAll.eq.true`);
   }
 
   if (status) query = query.eq("status", status);
@@ -51,11 +56,18 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { title, description, assignedToId, dueDate } = body;
+  const { title, description, assignedToId, dueAt, expiresAt, openToAll, maxSpots } = body;
 
-  if (!title || !assignedToId) {
+  if (!title) {
     return NextResponse.json(
-      { error: "Title and assignee are required" },
+      { error: "Title is required" },
+      { status: 400 }
+    );
+  }
+
+  if (!openToAll && !assignedToId) {
+    return NextResponse.json(
+      { error: "Assignee is required for non-open tasks" },
       { status: 400 }
     );
   }
@@ -67,13 +79,14 @@ export async function POST(request: NextRequest) {
       id: crypto.randomUUID(),
       title,
       description: description || null,
-      assignedToId,
+      assignedToId: openToAll ? null : assignedToId,
       assignedById: user.id,
-      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+      dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+      openToAll: !!openToAll,
+      maxSpots: openToAll && maxSpots ? Number(maxSpots) : null,
     })
-    .select(
-      "*, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name)"
-    )
+    .select(TASK_SELECT)
     .single();
 
   if (error) {

@@ -15,12 +15,12 @@ export default async function MembersPage() {
   const [brothersResult, pledgesResult] = await Promise.all([
     supabase
       .from("User")
-      .select("id, name, email, role, createdAt")
-      .in("role", ["BROTHER", "ADMIN"])
+      .select("id, name, email, phone, role, createdAt")
+      .eq("role", "BROTHER")
       .order("name"),
     supabase
       .from("User")
-      .select("id, name, email, role, pledgeClass, createdAt")
+      .select("id, name, email, phone, role, pledgeClass, createdAt")
       .eq("role", "PLEDGE")
       .order("name"),
   ]);
@@ -30,12 +30,14 @@ export default async function MembersPage() {
       id: string;
       name: string;
       email: string;
+      phone: string | null;
       role: string;
       createdAt: string;
     }) => ({
       id: u.id,
       name: u.name,
       email: u.email,
+      phone: u.phone ?? "",
       role: u.role,
       createdAt: u.createdAt,
     })
@@ -112,6 +114,7 @@ export default async function MembersPage() {
       id: string;
       name: string;
       email: string;
+      phone: string | null;
       role: string;
       pledgeClass: string | null;
       createdAt: string;
@@ -119,6 +122,7 @@ export default async function MembersPage() {
       id: u.id,
       name: u.name,
       email: u.email,
+      phone: u.phone ?? "",
       role: u.role,
       pledgeClass: u.pledgeClass,
       createdAt: u.createdAt,
