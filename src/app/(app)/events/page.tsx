@@ -15,6 +15,10 @@ export default async function EventsPage() {
       .from("Event")
       .select(
         `*,
+        source,
+        whatsappSender,
+        whatsappChatId,
+        whatsappMessage,
         createdBy:User!Event_createdById_fkey(id, name),
         signatures:Signature(
           *,
@@ -22,7 +26,7 @@ export default async function EventsPage() {
           brother:User!Signature_brotherId_fkey(id, name)
         )`
       )
-      .order("date", { ascending: false }),
+      .order("date", { ascending: false, nullsFirst: false }),
     supabase
       .from("User")
       .select("id, name")

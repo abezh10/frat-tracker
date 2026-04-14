@@ -14,7 +14,7 @@ export default async function TasksPage() {
   let tasksQuery = supabase
     .from("Task")
     .select(
-      "*, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name), claims:TaskClaim(id, userId, claimedAt, user:User!TaskClaim_userId_fkey(id, name))"
+      "*, source, whatsappSender, whatsappChatId, whatsappMessage, assignedTo:User!Task_assignedToId_fkey(id, name), assignedBy:User!Task_assignedById_fkey(id, name), claims:TaskClaim(id, userId, claimedAt, user:User!TaskClaim_userId_fkey(id, name))"
     )
     .order("createdAt", { ascending: false });
 

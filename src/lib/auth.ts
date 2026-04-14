@@ -44,6 +44,7 @@ export const getCurrentUser = cache(async () => {
       authId: authUser.id,
       name: displayNameFromAuth(authUser),
       email,
+      phone: "",
       role: "PLEDGE",
       pledgeClass: null,
     })

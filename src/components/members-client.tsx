@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import { Users, User, CheckCircle2, PenTool, Calendar, Phone } from "lucide-react";
 
+import { formatPhoneDisplay } from "@/lib/format-phone";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -136,7 +137,7 @@ function PledgeCard({
             {pledge.phone && (
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Phone className="size-3" />
-                {pledge.phone}
+                {formatPhoneDisplay(pledge.phone)}
               </p>
             )}
             {pledge.pledgeClass && (
@@ -211,7 +212,7 @@ function BrotherCard({
             {brother.phone && (
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Phone className="size-3" />
-                {brother.phone}
+                {formatPhoneDisplay(brother.phone)}
               </p>
             )}
           </div>

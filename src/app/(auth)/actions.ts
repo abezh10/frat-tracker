@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { phoneDigitsOnly } from "@/lib/format-phone";
 
 function friendlyAuthError(message: string) {
   const lower = message.toLowerCase();
@@ -51,6 +52,11 @@ export async function register(
     return { error: "All required fields must be filled." };
   }
 
+  const phoneStored = phoneDigitsOnly(phone);
+  if (!phoneStored) {
+    return { error: "Enter a valid phone number." };
+  }
+
   if (role === "PLEDGE" && !pledgeClass) {
     return { error: "Pledge class is required for pledges." };
   }
@@ -79,7 +85,7 @@ export async function register(
     authId: data.user.id,
     name,
     email,
-    phone,
+    phone: phoneStored,
     role,
     pledgeClass: role === "PLEDGE" ? pledgeClass || null : null,
   });

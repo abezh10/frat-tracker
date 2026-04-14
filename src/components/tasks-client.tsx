@@ -14,6 +14,8 @@ import {
   Timer,
   UserPlus,
   UserMinus,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 
 import {
@@ -64,8 +66,10 @@ interface Task {
   maxSpots: number | null;
   createdAt: string;
   assignedTo: { id: string; name: string } | null;
-  assignedBy: { id: string; name: string };
+  assignedBy: { id: string; name: string } | null;
   claims: TaskClaim[];
+  source?: string | null;
+  whatsappSender?: string | null;
 }
 
 interface TasksClientProps {
@@ -115,6 +119,7 @@ function TaskCard({
   onDelete,
   onClaim,
   onUnclaim,
+  onNotify,
 }: {
   task: Task;
   isBrother: boolean;
@@ -123,6 +128,7 @@ function TaskCard({
   onDelete: (id: string) => Promise<void>;
   onClaim: (id: string) => Promise<void>;
   onUnclaim: (id: string) => Promise<void>;
+  onNotify: (taskId: string, sender: string | null | undefined) => Promise<void>;
 }) {
   const [updating, setUpdating] = useState(false);
 
@@ -177,6 +183,15 @@ function TaskCard({
     }
   }
 
+  async function handleNotify() {
+    setUpdating(true);
+    try {
+      await onNotify(task.id, task.whatsappSender);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   return (
     <Card className="group border-border/60 bg-card/40 backdrop-blur-xl transition-all duration-200 hover:border-primary/30 hover:shadow-[0_20px_60px_-30px_var(--rail-glow)]">
       <CardHeader>
@@ -208,6 +223,12 @@ function TaskCard({
             <Badge className="bg-cyan-500/10 text-cyan-300 ring-1 ring-inset ring-cyan-400/25">
               <Users className="size-3" />
               Open
+            </Badge>
+          )}
+          {task.source === "WHATSAPP" && (
+            <Badge className="bg-emerald-500/10 text-emerald-300 ring-1 ring-inset ring-emerald-400/25">
+              <MessageCircle className="size-3" />
+              WhatsApp
             </Badge>
           )}
         </CardDescription>
@@ -245,7 +266,7 @@ function TaskCard({
               Assigned by
             </span>
             <span className="font-medium text-foreground">
-              {task.assignedBy.name}
+              {task.assignedBy?.name ?? (task.source === "WHATSAPP" ? "WhatsApp" : "—")}
             </span>
           </div>
           {task.dueAt && (
@@ -322,6 +343,19 @@ function TaskCard({
             >
               <UserMinus className="size-3.5" />
               Unclaim
+            </Button>
+          )}
+
+          {isBrother && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={handleNotify}
+              disabled={updating}
+            >
+              <Send className="size-3.5" />
+              Send WhatsApp
             </Button>
           )}
 
@@ -438,6 +472,23 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
     if (res.ok) router.refresh();
   }
 
+  async function handleNotify(taskId: string, sender: string | null | undefined) {
+    const to = window.prompt(
+      "Phone number to message (E.164, e.g. 15551234567):",
+      sender ?? ""
+    );
+    if (!to) return;
+    const res = await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, type: "task", id: taskId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      window.alert(`Failed to send: ${data.error ?? res.statusText}`);
+    }
+  }
+
   const canCreate = assignMode === "open"
     ? !!title
     : !!title && !!assigneeId;
@@ -465,6 +516,7 @@ export function TasksClient({ tasks, currentUser, pledges }: TasksClientProps) {
             onDelete={handleDelete}
             onClaim={handleClaim}
             onUnclaim={handleUnclaim}
+            onNotify={handleNotify}
           />
         ))}
       </div>

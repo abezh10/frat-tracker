@@ -11,6 +11,8 @@ import {
   Check,
   User,
   Trash2,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 
 import {
@@ -44,13 +46,15 @@ interface EventsClientProps {
     date: string;
     location: string | null;
     createdAt: string;
-    createdBy: { id: string; name: string };
+    createdBy: { id: string; name: string } | null;
     signatures: Array<{
       id: string;
       pledge: { id: string; name: string };
       brother: { id: string; name: string };
     }>;
     _count: { signatures: number };
+    source?: string | null;
+    whatsappSender?: string | null;
   }>;
   currentUser: { id: string; name: string; role: string };
   pledges: Array<{ id: string; name: string }>;
@@ -112,6 +116,26 @@ export function EventsClient({
       }
     } finally {
       setAwarding(null);
+    }
+  }
+
+  async function handleNotifyEvent(
+    eventId: string,
+    sender: string | null | undefined
+  ) {
+    const to = window.prompt(
+      "Phone number to message (E.164, e.g. 15551234567):",
+      sender ?? ""
+    );
+    if (!to) return;
+    const res = await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, type: "event", id: eventId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      window.alert(`Failed to send: ${data.error ?? res.statusText}`);
     }
   }
 
@@ -284,8 +308,19 @@ export function EventsClient({
                     )}
                     <div className="flex items-center gap-2">
                       <User className="h-3.5 w-3.5 shrink-0" />
-                      <span>{event.createdBy.name}</span>
+                      <span>
+                        {event.createdBy?.name ??
+                          (event.source === "WHATSAPP" ? "WhatsApp" : "—")}
+                      </span>
                     </div>
+                    {event.source === "WHATSAPP" && (
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-500/10 text-emerald-300 ring-1 ring-inset ring-emerald-400/25">
+                          <MessageCircle className="size-3" />
+                          WhatsApp
+                        </Badge>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <PenTool className="h-3.5 w-3.5 shrink-0 text-cyan-400/80" />
                       <span>
@@ -374,6 +409,16 @@ export function EventsClient({
                           </div>
                         </DialogContent>
                       </Dialog>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleNotifyEvent(event.id, event.whatsappSender)
+                        }
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </Button>
 
                       <Button
                         variant="ghost"

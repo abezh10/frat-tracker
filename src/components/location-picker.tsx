@@ -84,7 +84,7 @@ export function LocationPicker({
 }: LocationPickerProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +92,7 @@ export function LocationPicker({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
       onChange(val);
+      setConfirmed(false);
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -114,7 +115,9 @@ export function LocationPicker({
     setShowDropdown(false);
     setSuggestions([]);
     const address = await getPlaceAddress(suggestion.placeId);
-    onChange(address || `${suggestion.text}, ${suggestion.secondaryText}`);
+    const resolved = address || `${suggestion.text}, ${suggestion.secondaryText}`;
+    onChange(resolved);
+    setConfirmed(true);
   }
 
   useEffect(() => {
@@ -127,16 +130,8 @@ export function LocationPicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!value || !HAS_KEY) {
-      setEmbedUrl(null);
-      return;
-    }
-    const q = encodeURIComponent(value);
-    setEmbedUrl(
-      `https://www.google.com/maps/embed/v1/place?key=${API_KEY}&q=${q}&zoom=15`
-    );
-  }, [value]);
+  const showPreview = confirmed && value && HAS_KEY;
+  const showFallback = !confirmed && value.length > 0;
 
   return (
     <div className="space-y-2">
@@ -181,17 +176,25 @@ export function LocationPicker({
         )}
       </div>
 
-      {embedUrl && (
+      {showPreview && (
         <div className="overflow-hidden rounded-md border border-border/60">
           <iframe
             title="Location preview"
-            src={embedUrl}
+            src={`https://www.google.com/maps/embed/v1/place?key=${API_KEY}&q=${encodeURIComponent(value)}&zoom=15`}
             className="h-40 w-full"
             style={{ border: 0 }}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
           />
+        </div>
+      )}
+
+      {showFallback && (
+        <div className="flex items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/20 py-6">
+          <p className="text-xs text-muted-foreground">
+            Select an address from the suggestions to see a map preview
+          </p>
         </div>
       )}
     </div>
