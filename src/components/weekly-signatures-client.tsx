@@ -1,8 +1,14 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { format, startOfISOWeek } from "date-fns";
+import {
+  format,
+  startOfISOWeek,
+  addWeeks,
+  getISOWeek,
+  getISOWeekYear,
+} from "date-fns";
 import {
   ChevronLeft,
   ChevronRight,
@@ -30,6 +36,10 @@ import { Progress } from "@/components/ui/progress";
 
 const SIGNATURE_GOAL = 40;
 
+// Spring Week 1 = ISO week 2026-W14 (Mon March 30 – Sun April 5)
+const SPRING_W1_YEAR = 2026;
+const SPRING_W1_WEEK = 14;
+
 interface WeeklySignaturesClientProps {
   currentWeek: string;
   pledgeData: Array<{
@@ -52,9 +62,8 @@ function getWeekDates(isoWeek: string) {
   const year = parseInt(yearStr);
   const week = parseInt(weekStr);
   const jan4 = new Date(year, 0, 4);
-  const startOfWeek1 = startOfISOWeek(jan4);
-  const weekStart = new Date(startOfWeek1);
-  weekStart.setDate(weekStart.getDate() + (week - 1) * 7);
+  const startOfW1 = startOfISOWeek(jan4);
+  const weekStart = addWeeks(startOfW1, week - 1);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
   return { start: weekStart, end: weekEnd };
@@ -62,13 +71,17 @@ function getWeekDates(isoWeek: string) {
 
 function shiftWeek(isoWeek: string, direction: number): string {
   const { start } = getWeekDates(isoWeek);
-  const shifted = new Date(start);
-  shifted.setDate(shifted.getDate() + direction * 7);
-  const jan4 = new Date(shifted.getFullYear(), 0, 4);
-  const s1 = startOfISOWeek(jan4);
-  const diff = shifted.getTime() - s1.getTime();
-  const weekNum = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
-  return `${shifted.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  const shifted = addWeeks(start, direction);
+  const year = getISOWeekYear(shifted);
+  const week = getISOWeek(shifted);
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
+function getSpringWeekLabel(isoWeek: string): string | null {
+  if (!isoWeek.startsWith(`${SPRING_W1_YEAR}-W`)) return null;
+  const weekNum = parseInt(isoWeek.split("-W")[1]);
+  if (weekNum < SPRING_W1_WEEK) return null;
+  return `Spring Week ${weekNum - SPRING_W1_WEEK + 1}`;
 }
 
 function RankBadge({ rank }: { rank: number }) {
@@ -122,7 +135,7 @@ function TrendIndicator({
   }
   if (current < previous) {
     return (
-      <span className="inline-flex items-center gap-1 text-red-400">
+      <span className="inline-flex items-center gap-1 text-blue-400">
         <TrendingDown className="size-4" />
         <span className="font-mono text-xs tabular-nums">
           {current - previous}
@@ -143,12 +156,13 @@ export function WeeklySignaturesClient({
 }: WeeklySignaturesClientProps) {
   const router = useRouter();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const dirRef = useRef<"left" | "right" | null>(null);
 
-  const weekNum = parseInt(currentWeek.split("-W")[1]);
   const { start: weekStart, end: weekEnd } = getWeekDates(currentWeek);
+  const springLabel = getSpringWeekLabel(currentWeek);
 
   const sorted = [...pledgeData].sort(
-    (a, b) => b.thisWeekCount - a.thisWeekCount
+    (a, b) => b.thisWeekCount - a.thisWeekCount,
   );
 
   const totalSigs = sorted.reduce((s, d) => s + d.thisWeekCount, 0);
@@ -165,6 +179,7 @@ export function WeeklySignaturesClient({
   }
 
   function goToWeek(direction: number) {
+    dirRef.current = direction > 0 ? "left" : "right";
     router.push(`/signatures?week=${shiftWeek(currentWeek, direction)}`);
   }
 
@@ -180,17 +195,35 @@ export function WeeklySignaturesClient({
         >
           <ChevronLeft />
         </Button>
-        <div className="min-w-56 text-center">
-          <span className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground/80">
-            ISO Week
-          </span>
-          <h2 className="font-mono text-xl font-semibold tracking-tight tabular-nums text-foreground">
-            W{String(weekNum).padStart(2, "0")}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {format(weekStart, "MMM d")} &ndash;{" "}
-            {format(weekEnd, "MMM d, yyyy")}
-          </p>
+        <div className="min-w-56 overflow-hidden text-center">
+          <div
+            key={currentWeek}
+            className={cn(
+              dirRef.current === "left" &&
+              "animate-in slide-in-from-right-8 fade-in duration-500",
+              dirRef.current === "right" &&
+              "animate-in slide-in-from-left-8 fade-in duration-500",
+            )}
+          >
+            {springLabel ? (
+              <>
+                <span className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground/80">
+                  Spring Semester
+                </span>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">
+                  {springLabel}
+                </h2>
+              </>
+            ) : (
+              <span className="block py-1 font-mono text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground/80">
+                Week of
+              </span>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {format(weekStart, "MMM d")} &ndash;{" "}
+              {format(weekEnd, "MMM d, yyyy")}
+            </p>
+          </div>
         </div>
         <Button
           variant="outline"
@@ -214,7 +247,9 @@ export function WeeklySignaturesClient({
             </div>
           </CardHeader>
           <CardContent>
-            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-foreground">{totalSigs}</p>
+            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-foreground">
+              {totalSigs}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">this week</p>
           </CardContent>
         </Card>
@@ -252,7 +287,9 @@ export function WeeklySignaturesClient({
             </div>
           </CardHeader>
           <CardContent>
-            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-foreground">{avg}</p>
+            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-foreground">
+              {avg}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
               signatures this week
             </p>
@@ -298,9 +335,9 @@ export function WeeklySignaturesClient({
                   const isExpanded = expandedRows.has(item.pledge.id);
                   const pct = Math.min(
                     Math.round(
-                      (item.cumulativeTotal / SIGNATURE_GOAL) * 100
+                      (item.cumulativeTotal / SIGNATURE_GOAL) * 100,
                     ),
-                    100
+                    100,
                   );
 
                   return (
@@ -334,7 +371,7 @@ export function WeeklySignaturesClient({
                             previous={item.lastWeekCount}
                           />
                         </TableCell>
-                        <TableCell className="text-center tabular-nums font-medium">
+                        <TableCell className="text-center font-medium tabular-nums">
                           {item.cumulativeTotal}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
@@ -349,7 +386,7 @@ export function WeeklySignaturesClient({
                           <ChevronDown
                             className={cn(
                               "size-4 text-muted-foreground transition-transform duration-200",
-                              isExpanded && "rotate-180"
+                              isExpanded && "rotate-180",
                             )}
                           />
                         </TableCell>
@@ -394,7 +431,7 @@ export function WeeklySignaturesClient({
                                           <td className="py-2 text-right text-muted-foreground">
                                             {format(
                                               new Date(sig.createdAt),
-                                              "MMM d, h:mm a"
+                                              "MMM d, h:mm a",
                                             )}
                                           </td>
                                         </tr>

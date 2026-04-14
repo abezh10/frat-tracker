@@ -4,13 +4,7 @@ import { useRef, useMemo, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
-// ---------------------------------------------------------------------------
-// Trace a closed polygon with subtle corner rounding.
-// ---------------------------------------------------------------------------
-function traceShape(
-  vertices: [number, number][],
-  radius: number,
-): THREE.Shape {
+function traceShape(vertices: [number, number][], radius: number): THREE.Shape {
   const s = new THREE.Shape();
   const len = vertices.length;
 
@@ -31,131 +25,104 @@ function traceShape(
     const p2x = curr[0] + (toNext[0] / dNext) * r;
     const p2y = curr[1] + (toNext[1] / dNext) * r;
 
-    if (i === 0) {
-      s.moveTo(p1x, p1y);
-    } else {
-      s.lineTo(p1x, p1y);
-    }
-    if (r > 0.001) {
-      s.quadraticCurveTo(curr[0], curr[1], p2x, p2y);
-    }
+    if (i === 0) s.moveTo(p1x, p1y);
+    else s.lineTo(p1x, p1y);
+    if (r > 0.001) s.quadraticCurveTo(curr[0], curr[1], p2x, p2y);
   }
   s.closePath();
   return s;
 }
 
 // ---------------------------------------------------------------------------
-// Σ (Sigma) — matches the reference: full-width bars, right-end serifs,
-// diagonal inner strokes meeting at a center vertex.
+// Σ  –  full-width top/bottom bars, right-end serifs, thick diagonal strokes
+//       whose inner edges meet at a deep inner vertex.
 // ---------------------------------------------------------------------------
 function createSigmaShape(): THREE.Shape {
   const w = 2.1;
   const h = 3.0;
-  const th = 0.34;
-  const sw = 0.08; // right-serif width
-  const sh = 0.05; // right-serif height
+  const th = 0.36;
+  const sw = 0.07;
+  const sh = 0.04;
+
+  // Outer vertex – where the two outer diagonal edges meet (the > tip)
+  const ovx = 0.9;
+  // Inner vertex – where the two inner diagonal edges meet (deeper into letter)
+  const ivx = 1.25;
+  // Inner bar junction – where inner diagonal meets inner bar edge
+  const ijx = 0.55;
 
   return traceShape(
     [
-      // Top-left corner
       [0, h],
-      // Top bar → right end
       [w, h],
-      // Top-right serif (rectangular extension above & below bar end)
       [w, h + sh],
       [w + sw, h + sh],
       [w + sw, h - th - sh],
       [w, h - th - sh],
-      // Inner edge of top bar
       [w, h - th],
-      [0.48, h - th],
-      // Inner vertex (center of the > shape)
-      [0.65, h / 2],
-      // Inner edge of bottom bar
-      [0.48, th],
+      [ijx, h - th],
+      [ivx, h / 2],
+      [ijx, th],
       [w, th],
-      // Bottom-right serif
       [w, th + sh],
       [w + sw, th + sh],
       [w + sw, -sh],
       [w, -sh],
-      // Bottom bar
       [w, 0],
       [0, 0],
-      // Outer vertex (point of the > shape)
-      [1.0, h / 2],
+      [ovx, h / 2],
     ],
     0.02,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Χ (Chi) — serif X with flat horizontal caps at all four arm tips.
-// 20 vertices: 4 serif caps (3 verts each) + 4 center intersection vertices
-// + 4 inner connections.
+// Χ  –  12-vertex X with straight edges from serif tips to center vertices.
+//       No step-down kinks; every inner edge is a single clean line.
 // ---------------------------------------------------------------------------
 function createChiShape(): THREE.Shape {
   const w = 2.2;
   const h = 3.0;
-  const sfw = 0.32; // serif half-width at tips
-  const st = 0.12; // serif step height
-
-  // Perpendicular offset of stroke edges (hw = 0.22)
-  const hw = 0.22;
   const cx = w / 2;
   const cy = h / 2;
+  const hw = 0.22;
   const armLen = Math.hypot(cx, cy);
-  const px = (hw * cy) / armLen;
-  const py = (hw * cx) / armLen;
 
-  // Center intersection vertices (where adjacent stroke edges cross)
-  const cTopY = cy + (2 * hw * cy) / armLen + py * 0.6;
-  const cBotY = cy - (2 * hw * cy) / armLen - py * 0.6;
-  const cRightX = cx + (2 * hw * cx) / armLen + px * 0.6;
-  const cLeftX = cx - (2 * hw * cx) / armLen - px * 0.6;
+  // Serif half-width at each arm tip
+  const sfw = 0.30;
+
+  // Center diamond vertices (where adjacent arm inner edges intersect)
+  const cTopY = cy + (2 * hw * cy) / armLen + 0.08;
+  const cBotY = cy - (2 * hw * cy) / armLen - 0.08;
+  const cRightX = cx + (2 * hw * cx) / armLen + 0.06;
+  const cLeftX = cx - (2 * hw * cx) / armLen - 0.06;
 
   return traceShape(
     [
-      // TL arm — flat horizontal serif cap
       [-sfw, h],
       [sfw, h],
-      [px + 0.02, h - st],
-      // Center top
       [cx, cTopY],
-      // TR arm
-      [w - px - 0.02, h - st],
       [w - sfw, h],
       [w + sfw, h],
-      [w + px + 0.02, h - st],
-      // Center right
       [cRightX, cy],
-      // BR arm
-      [w + px + 0.02, st],
       [w + sfw, 0],
       [w - sfw, 0],
-      [w - px - 0.02, st],
-      // Center bottom
       [cx, cBotY],
-      // BL arm
-      [px + 0.02, st],
       [sfw, 0],
       [-sfw, 0],
-      [-px - 0.02, st],
-      // Center left
       [cLeftX, cy],
-      [-px - 0.02, h - st],
     ],
     0.02,
   );
 }
 
 const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-  depth: 0.5,
+  depth: 0.45,
   bevelEnabled: true,
-  bevelThickness: 0.05,
-  bevelSize: 0.04,
-  bevelSegments: 2,
-  curveSegments: 6,
+  bevelThickness: 0.04,
+  bevelSize: 0.03,
+  bevelSegments: 1,
+  curveSegments: 4,
 };
 
 function Letters() {
@@ -167,7 +134,6 @@ function Letters() {
     () => new THREE.ExtrudeGeometry(createSigmaShape(), extrudeSettings),
     [],
   );
-
   const chiGeo = useMemo(
     () => new THREE.ExtrudeGeometry(createChiShape(), extrudeSettings),
     [],
@@ -195,46 +161,47 @@ function Letters() {
     gl.domElement.onpointermove = handlePointerMove;
   });
 
-  // Gold fill — matching reference
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
         color: new THREE.Color("hsl(43, 65%, 52%)"),
-        metalness: 0.35,
-        roughness: 0.4,
-        emissive: new THREE.Color("hsl(43, 55%, 18%)"),
-        emissiveIntensity: 0.35,
+        metalness: 0.3,
+        roughness: 0.45,
+        emissive: new THREE.Color("hsl(43, 55%, 16%)"),
+        emissiveIntensity: 0.3,
       }),
     [],
   );
 
-  // White outline — matching reference border
   const edgeMaterial = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color("hsl(0, 0%, 92%)"),
+        color: new THREE.Color("hsl(0, 0%, 90%)"),
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.4,
       }),
     [],
+  );
+
+  const sigmaEdges = useMemo(
+    () => new THREE.EdgesGeometry(sigmaGeo, 20),
+    [sigmaGeo],
+  );
+  const chiEdges = useMemo(
+    () => new THREE.EdgesGeometry(chiGeo, 20),
+    [chiGeo],
   );
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
-      <group position={[-2.8, -1.5, -0.25]}>
+      <group position={[-2.8, -1.5, -0.22]}>
         <mesh geometry={sigmaGeo} material={material} />
-        <lineSegments
-          geometry={new THREE.EdgesGeometry(sigmaGeo, 15)}
-          material={edgeMaterial}
-        />
+        <lineSegments geometry={sigmaEdges} material={edgeMaterial} />
       </group>
 
-      <group position={[0.2, -1.5, -0.25]}>
+      <group position={[0.2, -1.5, -0.22]}>
         <mesh geometry={chiGeo} material={material} />
-        <lineSegments
-          geometry={new THREE.EdgesGeometry(chiGeo, 15)}
-          material={edgeMaterial}
-        />
+        <lineSegments geometry={chiEdges} material={edgeMaterial} />
       </group>
     </group>
   );
@@ -247,13 +214,13 @@ export function SigmaChiLetters3D() {
         camera={{ position: [0, 0, 7], fov: 50 }}
         style={{ pointerEvents: "auto" }}
         gl={{ alpha: true, antialias: true }}
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
       >
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={0.8} />
         <directionalLight
           position={[-3, -2, 4]}
-          intensity={0.3}
+          intensity={0.25}
           color="hsl(40, 60%, 70%)"
         />
         <Letters />

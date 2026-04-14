@@ -1,10 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import {
-  LandingHero,
-  LandingGlobeBackground,
-} from "@/components/landing-3d";
-import { Button } from "@/components/ui/button";
+import { LandingGlobeBackground } from "@/components/landing-3d";
 
 export default function LandingPage() {
   return (
@@ -14,8 +10,6 @@ export default function LandingPage() {
 
       {/* ── Hero ────────────────────────────────────────────── */}
       <section className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-24">
-        <LandingHero />
-
         <div className="relative z-10 flex max-w-lg flex-col items-center gap-6 text-center">
           <div className="flex flex-col items-center gap-3">
             <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-cyan-500 text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_20px_50px_-15px_var(--rail-glow)]">
@@ -27,23 +21,23 @@ export default function LandingPage() {
               Sigma Chi
             </h1>
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-muted-foreground">
-              Chapter Management System
+              Management System
             </p>
           </div>
 
           <p className="max-w-md text-base text-muted-foreground md:text-lg">
             The all-in-one platform to track pledges, manage events, collect
-            signatures, and keep your chapter running smoothly.
+            signatures, and keep everything running smoothly, with direct integration
+            with WhatsApp.
           </p>
 
-          <Button
-            size="lg"
-            className="h-12 gap-2 bg-gradient-to-r from-primary to-primary/85 px-6 font-medium text-primary-foreground shadow-[0_10px_30px_-12px_var(--rail-glow)] hover:from-primary/95 hover:to-primary/75"
-            render={<Link href="/login" />}
+          <Link
+            href="/login"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-primary to-primary/85 px-6 text-sm font-medium text-primary-foreground shadow-[0_10px_30px_-12px_var(--rail-glow)] transition-all hover:from-primary/95 hover:to-primary/75"
           >
             Log In
             <ArrowRight className="size-4" />
-          </Button>
+          </Link>
         </div>
       </section>
 
@@ -54,7 +48,7 @@ export default function LandingPage() {
             Connected Everywhere
           </p>
           <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-            One chapter, one network
+            One network
           </h2>
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
             Track signatures, manage events, and stay connected with brothers

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
@@ -27,7 +27,7 @@ function createArcPoints(
   a: THREE.Vector3,
   b: THREE.Vector3,
   radius: number,
-  segments = 48,
+  segments = 24,
 ): [number, number, number][] {
   const pts: [number, number, number][] = [];
   for (let i = 0; i <= segments; i++) {
@@ -43,16 +43,31 @@ function createArcPoints(
   return pts;
 }
 
+const DOT_COUNT = 50;
+const ARC_COUNT = 6;
+const RADIUS = 2;
+
 function Globe({ opacity = 1 }: { opacity?: number }) {
   const groupRef = useRef<THREE.Group>(null);
-  const RADIUS = 2;
+  const dotsRef = useRef<THREE.InstancedMesh>(null!);
 
-  const surfacePoints = useMemo(() => fibSpherePoints(120, RADIUS), []);
+  const surfacePoints = useMemo(() => fibSpherePoints(DOT_COUNT, RADIUS), []);
+
+  useEffect(() => {
+    if (!dotsRef.current) return;
+    const dummy = new THREE.Object3D();
+    surfacePoints.forEach((pt, i) => {
+      dummy.position.copy(pt);
+      dummy.updateMatrix();
+      dotsRef.current.setMatrixAt(i, dummy.matrix);
+    });
+    dotsRef.current.instanceMatrix.needsUpdate = true;
+  }, [surfacePoints]);
 
   const arcs = useMemo(() => {
     const pairs: [THREE.Vector3, THREE.Vector3][] = [];
     const used = new Set<string>();
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < ARC_COUNT; i++) {
       let a: number, b: number;
       do {
         a = Math.floor(Math.random() * surfacePoints.length);
@@ -69,7 +84,7 @@ function Globe({ opacity = 1 }: { opacity?: number }) {
   const wireframeMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color("hsl(258, 70%, 50%)"),
+        color: new THREE.Color("hsl(220, 60%, 30%)"),
         wireframe: true,
         transparent: true,
         opacity: 0.12 * opacity,
@@ -77,6 +92,7 @@ function Globe({ opacity = 1 }: { opacity?: number }) {
     [opacity],
   );
 
+  const dotGeo = useMemo(() => new THREE.SphereGeometry(0.025, 4, 4), []);
   const dotMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
@@ -87,12 +103,12 @@ function Globe({ opacity = 1 }: { opacity?: number }) {
     [opacity],
   );
 
-  const arcColor = "hsl(258, 80%, 65%)";
+  const arcColor = "hsl(215, 70%, 45%)";
 
   const ringMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color("hsl(258, 60%, 45%)"),
+        color: new THREE.Color("hsl(220, 55%, 28%)"),
         wireframe: true,
         transparent: true,
         opacity: 0.18 * opacity,
@@ -108,17 +124,16 @@ function Globe({ opacity = 1 }: { opacity?: number }) {
       Math.sin(clock.getElapsedTime() * 0.04) * 0.1;
   });
 
-  const dotGeo = useMemo(() => new THREE.SphereGeometry(0.025, 6, 6), []);
-
   return (
     <group ref={groupRef}>
       <mesh material={wireframeMat}>
-        <sphereGeometry args={[RADIUS, 32, 32]} />
+        <sphereGeometry args={[RADIUS, 24, 24]} />
       </mesh>
 
-      {surfacePoints.map((pt, i) => (
-        <mesh key={i} position={pt} geometry={dotGeo} material={dotMat} />
-      ))}
+      <instancedMesh
+        ref={dotsRef}
+        args={[dotGeo, dotMat, DOT_COUNT]}
+      />
 
       {arcs.map(([a, b], i) => (
         <Line
@@ -132,13 +147,13 @@ function Globe({ opacity = 1 }: { opacity?: number }) {
       ))}
 
       <mesh material={ringMat} rotation={[Math.PI / 2.4, 0.15, 0]}>
-        <torusGeometry args={[RADIUS * 1.5, 0.015, 8, 80]} />
+        <torusGeometry args={[RADIUS * 1.5, 0.015, 6, 64]} />
       </mesh>
       <mesh material={ringMat} rotation={[Math.PI / 2.1, -0.25, 0.3]}>
-        <torusGeometry args={[RADIUS * 1.7, 0.01, 8, 90]} />
+        <torusGeometry args={[RADIUS * 1.7, 0.01, 6, 64]} />
       </mesh>
       <mesh material={ringMat} rotation={[Math.PI / 2.6, 0.4, -0.15]}>
-        <torusGeometry args={[RADIUS * 1.35, 0.008, 6, 70]} />
+        <torusGeometry args={[RADIUS * 1.35, 0.008, 6, 56]} />
       </mesh>
     </group>
   );
@@ -156,7 +171,7 @@ export function GlobeScene({ opacity = 1 }: { opacity?: number }) {
       <pointLight
         position={[5, 3, 5]}
         intensity={0.5}
-        color="hsl(258, 80%, 65%)"
+        color="hsl(215, 60%, 40%)"
       />
       <Globe opacity={opacity} />
     </Canvas>

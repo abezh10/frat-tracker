@@ -86,7 +86,7 @@
   --muted-foreground: oklch(0.5 0.02 265);
   --accent: oklch(0.75 0.15 200);
   --accent-foreground: oklch(0.2 0.05 200);
-  --destructive: oklch(0.62 0.23 20);
+  --destructive: oklch(0.55 0.18 250);
 
   --border: oklch(0.9 0.01 260);
   --input: oklch(0.9 0.01 260);
@@ -94,9 +94,9 @@
 
   --chart-1: oklch(0.54 0.2 262);
   --chart-2: oklch(0.72 0.16 200);
-  --chart-3: oklch(0.65 0.18 295);
+  --chart-3: oklch(0.55 0.14 240);
   --chart-4: oklch(0.78 0.15 75);
-  --chart-5: oklch(0.62 0.19 340);
+  --chart-5: oklch(0.60 0.15 225);
 
   --radius: 0.75rem;
 
@@ -141,7 +141,7 @@
   --accent: oklch(0.72 0.14 210);
   --accent-foreground: oklch(0.14 0.02 275);
 
-  --destructive: oklch(0.68 0.22 22);
+  --destructive: oklch(0.58 0.16 245);
 
   /* Hairline borders — white at ~8–10% opacity */
   --border: oklch(1 0 0 / 8%);
@@ -150,16 +150,15 @@
 
   --chart-1: oklch(0.65 0.2 258);
   --chart-2: oklch(0.72 0.14 210);
-  --chart-3: oklch(0.7 0.18 295);
+  --chart-3: oklch(0.55 0.14 235);
   --chart-4: oklch(0.78 0.15 75);
-  --chart-5: oklch(0.62 0.19 340);
+  --chart-5: oklch(0.60 0.15 220);
 
   --sigma-blue: oklch(0.65 0.2 258);
   --sigma-gold: oklch(0.78 0.16 85); /* retained amber for legacy accents */
   --rail-surface: oklch(0.18 0.025 275);
   --rail-elevated: oklch(0.22 0.028 275);
-  /* Warm glow matches the new red/orange ambient background */
-  --rail-glow: oklch(0.68 0.22 35 / 0.4);
+  --rail-glow: oklch(0.55 0.15 240 / 0.35);
 
   /* Sidebar matches the Railway navigation — a touch darker than the
      canvas, crisp indigo with a blue active state. */
@@ -198,49 +197,37 @@
 }
 
 /* -----------------------------------------------------------
- * Ambient background — large blurred red + orange radial glows
- * over a deep indigo canvas, with a fine SVG grain overlay for
- * that "designed at 3 a.m." texture. Applied to the <body>.
- *
- *  - body: a trio of wide, soft radial gradients tinted red /
- *    orange / amber, fixed so they don't scroll with content.
- *  - body::before: static SVG fractal-noise at low opacity,
- *    screened over the gradients for subtle film grain.
- *  - body::after: a vignette that darkens the edges slightly
- *    so the glows feel like they're emerging from the corners.
+ * Ambient background — large blurred blue radial glows over a
+ * deep indigo canvas, with a fine SVG grain overlay for subtle
+ * texture. Applied to the <body>.
  * --------------------------------------------------------- */
 .dark body {
-  background-color: oklch(0.14 0.022 275);
+  background-color: oklch(0.14 0.022 260);
   background-image:
-    /* large red orb, top-right — the dominant glow */
     radial-gradient(
-      900px 700px at 88% -8%,
-      oklch(0.62 0.24 25 / 0.45),
+      900px 700px at 85% -5%,
+      oklch(0.35 0.12 240 / 0.40),
       transparent 62%
     ),
-    /* warm orange orb, bottom-left */
     radial-gradient(
       1000px 720px at -6% 108%,
-      oklch(0.72 0.21 55 / 0.38),
+      oklch(0.30 0.10 225 / 0.35),
       transparent 60%
     ),
-    /* smaller amber hotspot mid-right, adds depth */
     radial-gradient(
       560px 420px at 72% 55%,
-      oklch(0.78 0.18 72 / 0.22),
+      oklch(0.40 0.10 215 / 0.18),
       transparent 70%
     ),
-    /* a faint violet wash top-left so it isn't monochromatic */
     radial-gradient(
       700px 500px at 5% -10%,
-      oklch(0.55 0.2 320 / 0.22),
+      oklch(0.32 0.10 250 / 0.20),
       transparent 65%
     ),
-    /* base gradient */
     linear-gradient(
       to bottom,
-      oklch(0.15 0.025 275),
-      oklch(0.12 0.02 275)
+      oklch(0.15 0.025 260),
+      oklch(0.12 0.02 260)
     );
   background-attachment: fixed;
 }

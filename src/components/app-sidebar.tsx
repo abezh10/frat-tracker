@@ -84,7 +84,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
               Sigma Chi
             </span>
             <span className="font-mono text-[0.65rem] uppercase tracking-[0.18em] text-sidebar-foreground/45">
-              Frat Tracker
+              Tracker
             </span>
           </div>
         </Link>

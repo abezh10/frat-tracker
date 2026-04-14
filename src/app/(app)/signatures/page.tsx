@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
-import { startOfISOWeek } from "date-fns";
+import {
+  startOfISOWeek,
+  addWeeks,
+  getISOWeek,
+  getISOWeekYear,
+} from "date-fns";
 
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -11,21 +16,17 @@ function getWeekRange(isoWeek: string) {
   const year = parseInt(yearStr);
   const week = parseInt(weekStr);
   const jan4 = new Date(year, 0, 4);
-  const startOfWeek1 = startOfISOWeek(jan4);
-  const weekStart = new Date(startOfWeek1);
-  weekStart.setDate(weekStart.getDate() + (week - 1) * 7);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
+  const startOfW1 = startOfISOWeek(jan4);
+  const weekStart = addWeeks(startOfW1, week - 1);
+  const weekEnd = addWeeks(weekStart, 1);
   return { start: weekStart, end: weekEnd };
 }
 
 function getCurrentISOWeek(): string {
   const now = new Date();
-  const jan4 = new Date(now.getFullYear(), 0, 4);
-  const start = startOfISOWeek(jan4);
-  const diff = now.getTime() - start.getTime();
-  const weekNum = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
-  return `${now.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  const year = getISOWeekYear(now);
+  const week = getISOWeek(now);
+  return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
 export default async function SignaturesPage({
