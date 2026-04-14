@@ -42,12 +42,17 @@ export async function register(
 ) {
   const name = formData.get("name") as string;
   const email = formData.get("email") as string;
+  const phone = formData.get("phone") as string;
   const password = formData.get("password") as string;
   const role = formData.get("role") as string;
   const pledgeClass = formData.get("pledgeClass") as string | null;
 
-  if (!name || !email || !password || !role) {
+  if (!name || !email || !phone || !password || !role) {
     return { error: "All required fields must be filled." };
+  }
+
+  if (role === "PLEDGE" && !pledgeClass) {
+    return { error: "Pledge class is required for pledges." };
   }
 
   if (!["BROTHER", "PLEDGE"].includes(role)) {
@@ -74,6 +79,7 @@ export async function register(
     authId: data.user.id,
     name,
     email,
+    phone,
     role,
     pledgeClass: role === "PLEDGE" ? pledgeClass || null : null,
   });
@@ -83,7 +89,7 @@ export async function register(
       insertError.code === "42501" ||
       insertError.message.toLowerCase().includes("row-level security") ||
       insertError.message.toLowerCase().includes("permission denied")
-        ? " In Supabase: SQL Editor → run `supabase/migrations/0002_disable_rls/migration.sql` (disables RLS on app tables)."
+        ? " Run `supabase/migrations/0004_rls_policies/migration.sql` in the Supabase SQL Editor to set up RLS policies."
         : "";
     return {
       error: `Could not save your profile: ${insertError.message}.${hint}`,

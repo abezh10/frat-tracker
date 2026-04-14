@@ -71,6 +71,19 @@ export default function RegisterPage() {
           </div>
 
           <div className="flex flex-col gap-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              placeholder="(555) 123-4567"
+              required
+              autoComplete="tel"
+              className="h-10"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
@@ -108,7 +121,8 @@ export default function RegisterPage() {
                 id="pledgeClass"
                 name="pledgeClass"
                 type="text"
-                placeholder="e.g. Fall 2026"
+                placeholder="e.g. Spring 2026"
+                required
                 autoComplete="off"
                 className="h-10"
               />
